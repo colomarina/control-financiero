@@ -1,15 +1,18 @@
 import { getConfig } from '@/lib/db/config'
 import { getTodosLosComercios, getCategorias } from '@/lib/db/comercios'
+import { usuarioActual } from '@/lib/db/client'
 import { FormConfig } from '@/components/FormConfig'
+import { FormPassword } from '@/components/FormPassword'
 import { CatalogoComercios } from '@/components/CatalogoComercios'
 import { AltaComercio } from '@/components/AltaComercio'
 import { Banner } from '@/components/ds'
 
 export default async function ConfigPage() {
-  const [config, comercios, categorias] = await Promise.all([
+  const [config, comercios, categorias, usuario] = await Promise.all([
     getConfig(),
     getTodosLosComercios(),
     getCategorias(),
+    usuarioActual(),
   ])
 
   const activos = comercios.filter((c) => c.activo).length
@@ -39,6 +42,11 @@ export default async function ConfigPage() {
         <AltaComercio categorias={categorias} />
 
         <CatalogoComercios comercios={comercios} categorias={categorias} />
+      </section>
+
+      <section className="gap-space-sm flex flex-col">
+        <h2 className="text-headline-md text-on-surface px-space-xs">Cuenta</h2>
+        <FormPassword email={usuario?.email ?? ''} />
       </section>
     </div>
   )

@@ -201,6 +201,16 @@ manda el gasto al día siguiente.
 ## Pendiente
 
 - Etapa 5: PWA, búsqueda, filtros, export.
-- Deploy a Vercel.
 - El `DESIGN_SYSTEM.md` nombra una pantalla de teclado numérico (`keypad-digits`) que
   todavía no existe: hoy el importe se carga con un input grande.
+- `lib/core/fijos.test.ts` usa importes reales como fixtures (OSDE, EDELAP). Si alguna vez
+  el repo deja de ser privado, cambiarlos por números inventados.
+
+## Ya hecho (no volver a proponerlo)
+
+- **Deployado en Vercel**, repo privado en `colomarina/control-financiero`.
+- **`supabase/seed.sql` no se versiona** (está en `.gitignore`): tiene datos financieros
+  reales. Se regenera con `npm run migrar <xlsx>`. `schema.sql` sí va al repo: es DDL puro.
+- **Cambio de contraseña** en `/config` (`cambiarPassword` en `app/actions/auth.ts`), que
+  valida la actual con `current_password`. No hay signup: el usuario se crea desde el
+  dashboard de Supabase.

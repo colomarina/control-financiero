@@ -44,3 +44,58 @@ export async function cerrarSesion() {
   revalidatePath('/', 'layout')
   redirect('/login')
 }
+
+// ---------------------------------------------------------------------------
+// Cambio de contraseña
+// ---------------------------------------------------------------------------
+
+export type EstadoPassword =
+  | { ok: true; mensaje: string }
+  | { ok: false; error: string }
+  | null
+
+const passwordSchema = z
+  .object({
+    actual: z.string().min(1, 'Poné tu contraseña actual'),
+    nueva: z.string().min(8, 'La nueva tiene que tener al menos 8 caracteres'),
+    repetir: z.string().min(1, 'Repetí la contraseña nueva'),
+  })
+  .refine((d) => d.nueva === d.repetir, {
+    message: 'Las dos contraseñas nuevas no coinciden',
+    path: ['repetir'],
+  })
+  .refine((d) => d.nueva !== d.actual, {
+    message: 'La contraseña nueva tiene que ser distinta de la actual',
+    path: ['nueva'],
+  })
+
+export async function cambiarPassword(
+  _estado: EstadoPassword,
+  formData: FormData,
+): Promise<EstadoPassword> {
+  const parsed = passwordSchema.safeParse({
+    actual: formData.get('actual'),
+    nueva: formData.get('nueva'),
+    repetir: formData.get('repetir'),
+  })
+
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0].message }
+  }
+
+  const supabase = await crearCliente()
+
+  // `current_password` hace que Supabase valide la contraseña vieja del lado
+  // del servidor: sin esto, cualquiera con la sesión abierta (un celular que
+  // quedó desbloqueado) podría cambiarla sin saberla.
+  const { error } = await supabase.auth.updateUser({
+    password: parsed.data.nueva,
+    current_password: parsed.data.actual,
+  })
+
+  if (error) {
+    return { ok: false, error: 'No pude cambiarla. ¿La contraseña actual está bien?' }
+  }
+
+  return { ok: true, mensaje: 'Contraseña actualizada.' }
+}
