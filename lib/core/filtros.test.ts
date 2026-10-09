@@ -25,7 +25,7 @@ function mov(p: Partial<MovimientoDetalle> = {}): MovimientoDetalle {
 const MOVS: MovimientoDetalle[] = [
   mov({ comercio: 'Coto', categoria: 'Supermercado', fecha: '2026-09-01', importeCentavos: 500_000 }),
   mov({ comercio: 'Shell', categoria: 'Auto', subcategoria: 'Combustible', fecha: '2026-09-10', formaPago: 'efectivo', importeCentavos: 300_000 }),
-  mov({ comercio: 'OSDE', categoria: 'Salud', subcategoria: 'Prepaga', fecha: '2026-08-05', formaPago: 'debito_automatico', esFijo: true, importeCentavos: 700_000 }),
+  mov({ comercio: 'Prepaga', categoria: 'Salud', subcategoria: 'Prepaga', fecha: '2026-08-05', formaPago: 'debito_automatico', esFijo: true, importeCentavos: 700_000 }),
   mov({ comercio: 'Farmacia', categoria: 'Salud', fecha: '2026-10-02', nota: 'Remedios de mamá', importeCentavos: 150_000 }),
 ]
 
@@ -126,7 +126,7 @@ describe('criterios combinados', () => {
       filtrarMovimientos(MOVS, { categoria: 'Salud', formaPago: 'debito_automatico' }).map(
         (m) => m.comercio,
       ),
-    ).toEqual(['OSDE'])
+    ).toEqual(['Prepaga'])
   })
 
   it('criterios que se contradicen dan vacío', () => {
@@ -145,7 +145,7 @@ describe('no muta ni reordena', () => {
     expect(filtrarMovimientos(MOVS, { texto: 'visa' }).map((m) => m.comercio)).toEqual([
       'Coto',
       'Shell',
-      'OSDE',
+      'Prepaga',
       'Farmacia',
     ])
   })

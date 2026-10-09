@@ -11,6 +11,8 @@ import {
   mesesAnteriores,
   nombreMes,
   fechaCorta,
+  aFechaLocal,
+  desdeFechaLocal,
 } from './fechas'
 
 describe('fechaEnZona', () => {
@@ -123,5 +125,35 @@ describe('fechaCorta', () => {
   it('rechaza una fecha mal formada', () => {
     expect(() => fechaCorta('2026-9-5')).toThrow()
     expect(() => fechaCorta('')).toThrow()
+  })
+})
+
+describe('aFechaLocal / desdeFechaLocal', () => {
+  it('da el día pedido, no el de UTC', () => {
+    const d = aFechaLocal('2026-10-15')
+    expect([d.getFullYear(), d.getMonth(), d.getDate()]).toEqual([2026, 9, 15])
+  })
+
+  it('es medianoche local', () => {
+    const d = aFechaLocal('2026-10-15')
+    expect([d.getHours(), d.getMinutes()]).toEqual([0, 0])
+  })
+
+  it('vuelve igual que como entró', () => {
+    for (const f of ['2026-10-15', '2026-01-01', '2026-12-31', '2024-02-29']) {
+      expect(desdeFechaLocal(aFechaLocal(f))).toBe(f)
+    }
+  })
+
+  it('new Date(iso) sí se corre de día: por eso existe aFechaLocal', () => {
+    // Deja documentado el bug que se evita. En UTC-3 el parseo ISO cae el 14.
+    const ingenuo = new Date('2026-10-15')
+    const offset = ingenuo.getTimezoneOffset()
+    if (offset > 0) expect(ingenuo.getDate()).toBe(14)
+    expect(aFechaLocal('2026-10-15').getDate()).toBe(15)
+  })
+
+  it('rechaza basura', () => {
+    expect(() => aFechaLocal('15/10/2026')).toThrow()
   })
 })

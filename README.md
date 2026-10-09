@@ -72,6 +72,7 @@ El script no usa dependencias: lee el `.xlsx` como ZIP con `zlib`.
 | `npm run lint` | ESLint |
 | `npm run migrar <xlsx>` | Genera `supabase/seed.sql` desde el Excel |
 | `npm run iconos` | Regenera los íconos de la PWA (solo si cambian los colores) |
+| `npm run cn:build` | Regenera `lib/cn-tables.mjs` (al tocar los tokens del `@theme`) |
 
 ---
 
@@ -108,8 +109,12 @@ en Environment Variables. No hace falta nada más.
 
 ## Estado
 
-Etapas 0–4 completas: movimientos, topes, predicción B+E, presupuesto, historial, fijos y
-gráficos. Pendiente la etapa 5 (PWA, búsqueda, filtros, export).
+Etapas 0–5 completas: movimientos, topes, predicción B+E, presupuesto, historial, fijos,
+gráficos, PWA instalable, teclado numérico y búsqueda con filtros. El export a CSV se
+descartó (ver [`PENDIENTES.md`](./PENDIENTES.md)).
+
+Lo único que queda es un backup propio de la base: el plan Free de Supabase no hace backups
+automáticos.
 
 > `supabase/seed.sql` **no se versiona**: contiene datos financieros reales (sueldo, topes,
 > movimientos) y está en el `.gitignore`. Se regenera cuando haga falta con `npm run migrar`.

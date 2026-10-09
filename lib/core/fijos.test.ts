@@ -4,17 +4,18 @@ import type { MovimientoDetalle } from '@/lib/schemas/movimiento'
 import { checklistFijos, fijosPendientes, fijosYaPagados, contadorFijos } from './fijos'
 
 const ID = {
-  osde: '00000000-0000-4000-8000-000000000001',
-  netflix: '00000000-0000-4000-8000-000000000002',
-  edelap: '00000000-0000-4000-8000-000000000003',
+  prepaga: '00000000-0000-4000-8000-000000000001',
+  streaming: '00000000-0000-4000-8000-000000000002',
+  luz: '00000000-0000-4000-8000-000000000003',
   coto: '00000000-0000-4000-8000-000000000009',
 }
 
-// Importes reales de la hoja "Gastos Fijos" del Excel.
+// Fixtures inventados: números redondos y nombres genéricos, para que el test
+// se lea solo y no publique cuánto se paga de cada cosa.
 const fijos: GastoFijoDetalle[] = [
-  { id: '00000000-0000-4000-8000-0000000000f1', comercioId: ID.osde, comercio: 'OSDE', estimadoCentavos: 56_999_500, vencimiento: 'Día 5', activo: true },
-  { id: '00000000-0000-4000-8000-0000000000f2', comercioId: ID.netflix, comercio: 'Netflix', estimadoCentavos: 1_680_000, vencimiento: 'Día 8', activo: true },
-  { id: '00000000-0000-4000-8000-0000000000f3', comercioId: ID.edelap, comercio: 'EDELAP', estimadoCentavos: 6_958_800, vencimiento: 'Día 5', activo: true },
+  { id: '00000000-0000-4000-8000-0000000000f1', comercioId: ID.prepaga, comercio: 'Prepaga', estimadoCentavos: 520_000, vencimiento: 'Día 5', activo: true },
+  { id: '00000000-0000-4000-8000-0000000000f2', comercioId: ID.streaming, comercio: 'Streaming', estimadoCentavos: 110_000, vencimiento: 'Día 8', activo: true },
+  { id: '00000000-0000-4000-8000-0000000000f3', comercioId: ID.luz, comercio: 'Luz', estimadoCentavos: 330_000, vencimiento: 'Día 5', activo: true },
 ]
 
 let n = 0
@@ -38,49 +39,49 @@ function mov(p: Partial<MovimientoDetalle> = {}): MovimientoDetalle {
 }
 
 const movs: MovimientoDetalle[] = [
-  // OSDE pagado completo, con débito automático (pesa contra el tope de tarjeta).
-  mov({ comercioId: ID.osde, comercio: 'OSDE', importeCentavos: 56_999_500, formaPago: 'debito_automatico', esFijo: true }),
-  // Netflix pagado a medias.
-  mov({ comercioId: ID.netflix, comercio: 'Netflix', importeCentavos: 1_000_000, formaPago: 'debito_automatico', esFijo: true }),
-  // EDELAP: nada este mes.
+  // Prepaga pagado completo, con débito automático (pesa contra el tope de tarjeta).
+  mov({ comercioId: ID.prepaga, comercio: 'Prepaga', importeCentavos: 520_000, formaPago: 'debito_automatico', esFijo: true }),
+  // Streaming pagado a medias.
+  mov({ comercioId: ID.streaming, comercio: 'Streaming', importeCentavos: 70_000, formaPago: 'debito_automatico', esFijo: true }),
+  // Luz: nada este mes.
   // Un gasto suelto que no es fijo.
   mov({ comercioId: ID.coto, importeCentavos: 500_000 }),
   // Mes anterior: no cuenta.
-  mov({ fecha: '2026-08-05', comercioId: ID.edelap, comercio: 'EDELAP', importeCentavos: 6_958_800, esFijo: true }),
+  mov({ fecha: '2026-08-05', comercioId: ID.luz, comercio: 'Luz', importeCentavos: 330_000, esFijo: true }),
 ]
 
 describe('checklistFijos', () => {
   it('deriva el estado de los movimientos del mes, sin tildes manuales', () => {
     expect(checklistFijos(fijos, movs, '2026-09').map((f) => [f.comercio, f.estado])).toEqual([
-      ['OSDE', 'pagado'],
-      ['Netflix', 'parcial'],
-      ['EDELAP', 'pendiente'],
+      ['Prepaga', 'pagado'],
+      ['Streaming', 'parcial'],
+      ['Luz', 'pendiente'],
     ])
   })
 
   it('trae los ids para que la UI no busque por nombre', () => {
-    const [osde] = checklistFijos(fijos, movs, '2026-09')
-    expect(osde.gastoFijoId).toBe(fijos[0].id)
-    expect(osde.comercioId).toBe(ID.osde)
+    const [prepaga] = checklistFijos(fijos, movs, '2026-09')
+    expect(prepaga.gastoFijoId).toBe(fijos[0].id)
+    expect(prepaga.comercioId).toBe(ID.prepaga)
   })
 
   it('calcula lo pagado y lo que falta', () => {
-    const [osde, netflix, edelap] = checklistFijos(fijos, movs, '2026-09')
-    expect(osde).toMatchObject({ pagado: 56_999_500, falta: 0 })
-    expect(netflix).toMatchObject({ pagado: 1_000_000, falta: 680_000 })
-    expect(edelap).toMatchObject({ pagado: 0, falta: 6_958_800 })
+    const [prepaga, streaming, luz] = checklistFijos(fijos, movs, '2026-09')
+    expect(prepaga).toMatchObject({ pagado: 520_000, falta: 0 })
+    expect(streaming).toMatchObject({ pagado: 70_000, falta: 40_000 })
+    expect(luz).toMatchObject({ pagado: 0, falta: 330_000 })
   })
 
   it('no arrastra lo pagado en otro mes', () => {
-    const edelap = checklistFijos(fijos, movs, '2026-09').find((f) => f.comercio === 'EDELAP')
-    expect(edelap?.estado).toBe('pendiente')
+    const luz = checklistFijos(fijos, movs, '2026-09').find((f) => f.comercio === 'Luz')
+    expect(luz?.estado).toBe('pendiente')
   })
 
   it('falta nunca es negativo aunque pagues de más', () => {
-    const dems = [...movs, mov({ comercioId: ID.edelap, comercio: 'EDELAP', importeCentavos: 99_999_999 })]
-    const edelap = checklistFijos(fijos, dems, '2026-09').find((f) => f.comercio === 'EDELAP')
-    expect(edelap?.falta).toBe(0)
-    expect(edelap?.estado).toBe('pagado')
+    const dems = [...movs, mov({ comercioId: ID.luz, comercio: 'Luz', importeCentavos: 99_999_999 })]
+    const luz = checklistFijos(fijos, dems, '2026-09').find((f) => f.comercio === 'Luz')
+    expect(luz?.falta).toBe(0)
+    expect(luz?.estado).toBe('pagado')
   })
 
   it('ignora los fijos dados de baja', () => {
@@ -99,34 +100,34 @@ describe('checklistFijos', () => {
 
 describe('fijosPendientes', () => {
   it('suma lo que falta de cada fijo', () => {
-    expect(fijosPendientes(fijos, movs, '2026-09')).toBe(680_000 + 6_958_800)
+    expect(fijosPendientes(fijos, movs, '2026-09')).toBe(40_000 + 330_000)
   })
 
   it('sin movimientos es el total estimado', () => {
     expect(fijosPendientes(fijos, [], '2026-09'))
-      .toBe(56_999_500 + 1_680_000 + 6_958_800)
+      .toBe(520_000 + 110_000 + 330_000)
   })
 })
 
 describe('fijosYaPagados', () => {
   it('cuenta solo lo que pesa contra el tope pedido', () => {
-    // OSDE y Netflix fueron por débito automático -> tope tarjeta
-    expect(fijosYaPagados(fijos, movs, '2026-09', 'tarjeta')).toBe(56_999_500 + 1_000_000)
+    // Prepaga y Streaming fueron por débito automático -> tope tarjeta
+    expect(fijosYaPagados(fijos, movs, '2026-09', 'tarjeta')).toBe(520_000 + 70_000)
     expect(fijosYaPagados(fijos, movs, '2026-09', 'efectivo')).toBe(0)
   })
 
   it('no cuenta los movimientos de comercios que no son fijos', () => {
     // El gasto de Coto (500.000) no entra aunque sea del mismo mes y tope.
-    expect(fijosYaPagados(fijos, movs, '2026-09', 'tarjeta')).not.toBe(58_499_500)
+    expect(fijosYaPagados(fijos, movs, '2026-09', 'tarjeta')).not.toBe(1_090_000)
   })
 
   it('separa por tope: un fijo pagado por transferencia no ensucia el de tarjeta', () => {
     const conTransfer = [...movs, mov({
-      comercioId: ID.edelap, comercio: 'EDELAP',
-      importeCentavos: 6_958_800, formaPago: 'transferencia', esFijo: true,
+      comercioId: ID.luz, comercio: 'Luz',
+      importeCentavos: 330_000, formaPago: 'transferencia', esFijo: true,
     })]
-    expect(fijosYaPagados(fijos, conTransfer, '2026-09', 'tarjeta')).toBe(56_999_500 + 1_000_000)
-    expect(fijosYaPagados(fijos, conTransfer, '2026-09', 'efectivo')).toBe(6_958_800)
+    expect(fijosYaPagados(fijos, conTransfer, '2026-09', 'tarjeta')).toBe(520_000 + 70_000)
+    expect(fijosYaPagados(fijos, conTransfer, '2026-09', 'efectivo')).toBe(330_000)
   })
 })
 

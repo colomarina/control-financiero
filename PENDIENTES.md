@@ -1,7 +1,7 @@
 # Pendientes
 
-Lo que queda, en orden de lo que más conviene atacar primero. Una por vez: cada tarea tiene
-el contexto necesario para retomarla sin releer todo el proyecto.
+Lo que queda. Cada tarea trae el contexto necesario para retomarla sin releer todo el
+proyecto.
 
 Lo ya terminado (etapas 0–4, deploy, cambio de contraseña) está en `CLAUDE.md`.
 
@@ -24,22 +24,10 @@ versiona**).
 **Criterio de listo**: corrés un comando, te queda un archivo, y restaurarlo en una base
 vacía reconstruye todo.
 
----
-
-## 2. Export
-
-**Qué hacer.** Bajar los movimientos de un mes (o del año) a CSV. Sirve para abrir en Excel
-cuando haga falta cruzar algo a mano, y es un respaldo más, aunque no reemplaza el punto 1:
-el CSV no restaura la base.
 
 ---
 
-## 3. Limpieza menor
+## Descartado
 
-- Precompilar las tablas de `cn` con `withCn` de `cn/next` para sacar ~16 KB gzip del
-  bundle (el config default y el compilador de tailwind-merge viajan al cliente). Suma un
-  archivo generado y wiring en `next.config.ts`; hoy no se paga, pero si la app se siente
-  pesada en 4G es lo primero que se puede recortar.
-- `lib/core/fijos.test.ts` usa importes reales como fixtures (OSDE $569.995, EDELAP $69.588).
-  Hacen los tests legibles y el repo es privado, así que no urge — pero si alguna vez se hace
-  público, cambiarlos por números inventados.
+- **Export a CSV.** Se evaluó y no interesa: para mirar los datos ya está el buscador del
+  Historial, y el respaldo lo resuelve el punto 1, que sí restaura la base.

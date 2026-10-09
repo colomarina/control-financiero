@@ -1,31 +1,22 @@
-import { createCn } from 'cn/config'
+import { createCn } from 'cn/engine'
+import tables from './cn-tables.mjs'
 
 /**
- * Los tamaños de texto del `@theme` de `app/globals.css` (los `--text-*`).
+ * `cn` sobre tablas precompiladas (`npm run cn:build` -> `lib/cn-tables.mjs`).
  *
- * Hay que declararlos acá porque tailwind-merge solo conoce la escala built-in
- * (`text-xs` … `text-9xl`). Cualquier otro `text-algo` le parece un COLOR, así
- * que `cn('text-keypad-digits text-on-surface')` tiraba el tamaño a la basura
- * por creer que eran dos colores peleando — y al revés, con el orden invertido,
- * se perdía el color. Toda la tipografía del design system pasaba por ahí.
+ * Dos cosas se resuelven en build y no en el navegador:
  *
- * Si se agrega un `--text-*` al `@theme`, va también en esta lista.
+ * 1. **Los tamaños de texto del design system.** tailwind-merge solo conoce la
+ *    escala built-in, así que cualquier `text-algo` del `@theme` le parecía un
+ *    color y descartaba uno de los dos: `cn('text-keypad-digits text-on-surface')`
+ *    devolvía solo el color y la tipografía se perdía en silencio. El builder
+ *    lee las escalas de `app/globals.css`, así que no hay ninguna lista que
+ *    mantener a mano: alcanza con regenerar.
+ * 2. **El peso.** Mandar el config entero y el compilador al cliente costaba
+ *    ~16 KB gzip; estas tablas traen solo los grupos que el proyecto usa.
+ *
+ * Si se agrega un token al `@theme` o una clase nueva de Tailwind, regenerar
+ * con `npm run cn:build`. `lib/utils.test.ts` falla si las tablas quedaron
+ * viejas respecto de `globals.css`.
  */
-const TAMANIOS_DE_TEXTO = [
-  'display-currency',
-  'display-currency-mobile',
-  'headline-lg',
-  'headline-lg-mobile',
-  'headline-md',
-  'headline-sm',
-  'keypad-digits',
-  'body-lg',
-  'body-md',
-  'body-sm',
-  'label-numeric',
-  'label-caps',
-]
-
-export const cn = createCn({
-  extend: { theme: { text: TAMANIOS_DE_TEXTO } },
-})
+export const cn = createCn(tables)

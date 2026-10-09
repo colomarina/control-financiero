@@ -8,6 +8,7 @@ import type { Comercio } from '@/lib/schemas/comercio'
 import { Card, TituloCard, Banner, campo, botonPrimario } from '@/components/ds'
 import { Icono } from '@/components/Icono'
 import { Keypad } from '@/components/Keypad'
+import { CampoFecha } from '@/components/CampoFecha'
 import { IMPORTE_VACIO, mostrar, estaVacio, type Importe } from '@/lib/core/keypad'
 import { cn } from '@/lib/utils'
 
@@ -27,6 +28,10 @@ export function FormGasto({
 }) {
   const [pendiente, startTransition] = useTransition()
   const [importe, setImporte] = useState<Importe>(IMPORTE_VACIO)
+  // `form.reset()` no alcanza para un campo controlado: sin esto, después de
+  // cargar un gasto de ayer el siguiente arrancaría también en ayer. Cambiar
+  // la key remonta el campo y vuelve a hoy.
+  const [versionFecha, setVersionFecha] = useState(0)
   const [formaPago, setFormaPago] = useState<FormaPago>('tarjeta_credito')
   const [comercioId, setComercioId] = useState('')
   const [busqueda, setBusqueda] = useState('')
@@ -46,6 +51,7 @@ export function FormGasto({
         setImporte(IMPORTE_VACIO)
         setComercioId('')
         setBusqueda('')
+        setVersionFecha((v) => v + 1)
       } else if (r) {
         toast.error(r.error)
       }
@@ -186,14 +192,7 @@ export function FormGasto({
         <div className="gap-space-sm grid grid-cols-2">
           <div className="gap-space-xs flex flex-col">
             <TituloCard>Fecha</TituloCard>
-            <input
-              name="fecha"
-              aria-label="Fecha"
-              type="date"
-              defaultValue={hoy}
-              required
-              className={campo}
-            />
+            <CampoFecha key={versionFecha} name="fecha" defaultValue={hoy} />
           </div>
           <div className="gap-space-xs flex flex-col">
             <TituloCard>Banco</TituloCard>

@@ -214,15 +214,29 @@ manda el gasto al día siguiente.
 - **Cambio de contraseña** en `/config` (`cambiarPassword` en `app/actions/auth.ts`), que
   valida la actual con `current_password`. No hay signup: el usuario se crea desde el
   dashboard de Supabase.
-- **`cn` está configurado, no es el de shadcn pelado** (`lib/utils.ts`). tailwind-merge solo
-  conoce la escala de texto built-in, así que cualquier `text-algo` del `@theme` le parecía un
-  color: `cn('text-keypad-digits text-on-surface')` devolvía solo el color y **toda la
-  tipografía del design system se perdía en silencio**. La lista `TAMANIOS_DE_TEXTO` arregla
-  eso. **Al agregar un `--text-*` al `@theme`, agregarlo también ahí**; `lib/utils.test.ts`
-  compara las dos listas y falla si falta alguno.
-  - Cuesta ~16 KB gzip (el config default de `cn` + su compilador viajan al cliente). Se puede
-    bajar a cero precompilando con `withCn` de `cn/next`, pero suma un archivo generado y
-    wiring en `next.config.ts`: no se pagaba para una app de un solo usuario.
+- **`cn` corre sobre tablas precompiladas** (`lib/utils.ts` + `lib/cn-tables.mjs`, que genera
+  `npm run cn:build`). tailwind-merge solo conoce la escala de texto built-in, así que
+  cualquier `text-algo` del `@theme` le parecía un color: `cn('text-keypad-digits
+  text-on-surface')` devolvía solo el color y **toda la tipografía del design system se
+  perdía en silencio**. El builder lee las escalas de `app/globals.css`, así que no hay lista
+  que mantener a mano.
+  - **`lib/cn-tables.mjs` es generado y está commiteado.** Si se tocan los tokens del `@theme`
+    o se suman clases nuevas de Tailwind, correr `npm run cn:build` y commitear el resultado.
+    `lib/utils.test.ts` falla si las tablas quedaron viejas respecto de `globals.css`.
+  - Precompilar además subsetea los class groups: el bundle quedó **más chico que con el `cn`
+    original**, así que el arreglo del bug salió gratis.
+  - Los componentes de `components/ui/*` que agrega shadcn vienen con `import { cn } from "cn"`.
+    **Cambiarlo a `@/lib/utils`** o quedan fuera de esta config y duplican el motor.
+- **Campo de fecha con calendario** (`components/CampoFecha.tsx`), en lugar del
+  `<input type="date">`. El valor sigue viajando como `"YYYY-MM-DD"` en un input oculto.
+  - El calendario (`CalendarioFecha` + `react-day-picker`) pesa ~165 KB y vive en su propio
+    módulo porque `CampoFecha` lo carga con `next/dynamic` recién al abrir el popover: la
+    fecha casi siempre es hoy y el resto del formulario no tiene por qué pagarlo.
+  - El puente `Date` ↔ ISO va por `aFechaLocal` / `desdeFechaLocal` (`lib/core/fechas.ts`).
+    **Nunca `new Date(iso)` ni `toISOString()`**: los dos pasan por UTC y corren la fecha un
+    día para atrás en Buenos Aires. Hay un test que deja el bug documentado.
+  - Al ser un campo controlado, `form.reset()` no lo vuelve a hoy: `FormGasto` lo remonta con
+    una `key` después de guardar.
 - **Búsqueda y filtros** en Historial: `lib/core/filtros.ts` (puro, con test) + el client
   component `BuscadorMovimientos`. Filtra **en el cliente** porque la pantalla ya trae todo
   el histórico para los agregados; si algún día son miles de filas, el filtrado se baja a

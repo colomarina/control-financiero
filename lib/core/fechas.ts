@@ -121,3 +121,30 @@ export function fechaCorta(fecha: FechaISO): string {
   if (!m) throw new Error(`Fecha inválida: ${fecha}. Se espera "YYYY-MM-DD".`)
   return `${m[3]}/${m[2]}/${m[1].slice(2)}`
 }
+
+/**
+ * `"2026-10-15"` -> un `Date` a medianoche **local**.
+ *
+ * Hace falta para los componentes de calendario, que trabajan con `Date`.
+ * `new Date("2026-10-15")` NO sirve: el string ISO se parsea como UTC, así que
+ * en Buenos Aires (UTC-3) cae el 14 a las 21:00 y el calendario pinta el día
+ * anterior. Pasando las partes por separado, el Date es local y el día es el
+ * que se pidió.
+ */
+export function aFechaLocal(fecha: FechaISO): Date {
+  const m = RE_FECHA.exec(fecha)
+  if (!m) throw new Error(`Fecha inválida: ${fecha}. Se espera "YYYY-MM-DD".`)
+  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
+}
+
+/**
+ * Un `Date` -> `"YYYY-MM-DD"` leyendo sus partes **locales**.
+ *
+ * El complemento de `aFechaLocal`. Nunca `toISOString()`: eso pasa por UTC y
+ * un 15 a las 00:00 en Buenos Aires vuelve como "2026-10-14".
+ */
+export function desdeFechaLocal(d: Date): FechaISO {
+  const mes = String(d.getMonth() + 1).padStart(2, '0')
+  const dia = String(d.getDate()).padStart(2, '0')
+  return `${d.getFullYear()}-${mes}-${dia}`
+}
