@@ -153,6 +153,24 @@ Regla: cada etapa tiene que quedar usable. El Excel es el respaldo hasta la etap
 | `transferencia`     | efectivo      |
 | `efectivo`          | efectivo      |
 
+**Presupuesto vs. Gastos fijos** — son dos cosas distintas y conviene no mezclarlas:
+
+| | Gastos fijos | Presupuesto |
+|---|---|---|
+| Qué son | Débitos automáticos | Plata que el usuario separa |
+| El monto | Lo decide el proveedor | Lo decide el usuario |
+| Para qué sirve | Verificar que se pagó | Repartir y no pasarse |
+| Ejemplos reales | Prepaga, luz, Netflix | Verdulería, gym, inversión mensual |
+
+El presupuesto **no pretende cubrir todo el gasto del mes**: es un subconjunto elegido a
+propósito (en el Excel original, 11 comercios de 48). Por eso **no va ningún "gastado fuera
+del plan"**: sumar los comercios no presupuestados mezcla lo que el usuario decidió no
+planificar con una fuga, y no significa nada. Existió, confundía, se sacó. El gasto total
+del mes es cosa del Home.
+
+Tampoco se separa ahorro de gasto: una línea de inversión es, a efectos del plan, plata que
+sale. Así la usaba el Excel y así se decidió dejarla.
+
 **Gastos fijos**: no hay tilde manual. Un fijo está pagado si su comercio aparece
 en los movimientos del mes (`lib/core/fijos.ts`). El hecho es el movimiento; el
 estado se deriva. Hay un estado `parcial` que el Excel no distinguía.

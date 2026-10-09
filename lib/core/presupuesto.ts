@@ -119,23 +119,6 @@ export function resumenPresupuesto(filas: FilaPresupuesto[]): ResumenPresupuesto
 }
 
 /**
- * Lo gastado este mes FUERA del plan: todo lo que no cae en ningún comercio
- * presupuestado. El Excel no lo mostraba y es justo lo que se escapa.
- */
-export function gastoFueraDelPlan(
-  plan: LineaPresupuestoDetalle[],
-  movs: MovimientoDetalle[],
-  mes: Mes,
-): number {
-  const presupuestados = new Set(plan.filter((l) => l.mes === mes).map((l) => l.comercioId))
-  return sumar(
-    ...movimientosDelMes(movs, mes)
-      .filter((m) => !presupuestados.has(m.comercioId))
-      .map((m) => m.importeCentavos),
-  )
-}
-
-/**
  * Arrastra el plan de un mes a otro: devuelve las líneas del mes origen
  * reapuntadas al mes destino. Sirve para no recargar todo cada mes.
  */

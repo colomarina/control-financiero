@@ -4,7 +4,6 @@ import type { MovimientoDetalle } from '@/lib/schemas/movimiento'
 import {
   presupuestoVsReal,
   resumenPresupuesto,
-  gastoFueraDelPlan,
   copiarPlan,
 } from './presupuesto'
 
@@ -137,16 +136,6 @@ describe('resumenPresupuesto', () => {
       real: 0,
       porcentajeUsado: 0,
     })
-  })
-})
-
-describe('gastoFueraDelPlan', () => {
-  it('suma lo gastado en comercios que no están presupuestados', () => {
-    expect(gastoFueraDelPlan(plan, movs, '2026-10')).toBe(7_000_000)
-  })
-
-  it('si no hay plan, todo el mes queda afuera', () => {
-    expect(gastoFueraDelPlan([], movs, '2026-10')).toBe(30_800_000)
   })
 })
 

@@ -1,18 +1,16 @@
+import Link from 'next/link'
 import { getMovimientosDelMes } from '@/lib/db/movimientos'
 import { getPlanDelMes } from '@/lib/db/presupuesto'
 import { getComercios } from '@/lib/db/comercios'
 import { getConfig } from '@/lib/db/config'
 import { mesActual, nombreMes, sumarMeses } from '@/lib/core/fechas'
-import {
-  presupuestoVsReal,
-  resumenPresupuesto,
-  gastoFueraDelPlan,
-} from '@/lib/core/presupuesto'
+import { presupuestoVsReal, resumenPresupuesto } from '@/lib/core/presupuesto'
 import { formatoARS } from '@/lib/core/dinero'
 import { copiarMesAnterior } from '@/app/actions/presupuesto'
 import { SelectorMes } from '@/components/SelectorMes'
 import { FilaPresupuesto } from '@/components/FilaPresupuesto'
 import { AltaLineaPlan } from '@/components/AltaLineaPlan'
+import { Icono } from '@/components/Icono'
 import {
   Card,
   TituloCard,
@@ -41,17 +39,22 @@ export default async function PresupuestoPage({
 
   const filas = presupuestoVsReal(plan, movs, mes, config.umbralCercaPct)
   const resumen = resumenPresupuesto(filas)
-  const afuera = gastoFueraDelPlan(plan, movs, mes)
 
   const enElPlan = new Set(plan.map((l) => l.comercioId))
   const disponibles = comercios.filter((c) => !enElPlan.has(c.id))
 
   const excedido = resumen.diferencia < 0
+  const mesSiguiente = sumarMeses(mes, 1)
 
   return (
     <div className="gap-space-lg flex flex-col">
       <header className="gap-space-sm flex flex-col">
-        <h1 className="text-headline-lg-mobile text-on-surface">Presupuesto</h1>
+        <div className="gap-space-xs flex flex-col">
+          <h1 className="text-headline-lg-mobile text-on-surface">Presupuesto</h1>
+          <p className="text-body-sm text-on-surface-variant">
+            La plata que separás cada mes. Los débitos automáticos están en Fijos.
+          </p>
+        </div>
         <SelectorMes mes={mes} />
       </header>
 
@@ -116,21 +119,21 @@ export default async function PresupuestoPage({
             </Card>
           </section>
 
-          {afuera > 0 && (
-            <Card>
-              <TituloCard>Gastado fuera del plan</TituloCard>
-              <p className="text-headline-lg-mobile text-on-surface tabular-nums">
-                {formatoARS(afuera)}
-              </p>
-              <p className="text-body-sm text-on-surface-variant">
-                Lo que gastaste este mes en comercios que no están presupuestados.
-              </p>
-            </Card>
-          )}
         </>
       )}
 
       <AltaLineaPlan comercios={disponibles} mes={mes} />
+
+      {/* El ciclo real de esta pantalla es armar el mes que viene y después
+          seguirlo. Lo segundo ya estaba; lo primero dependía de descubrir que
+          el selector de arriba avanza a meses futuros. */}
+      <Link
+        href={`/presupuesto?mes=${mesSiguiente}`}
+        className={`${botonSecundario} gap-space-sm flex items-center justify-center`}
+      >
+        <Icono nombre="event_upcoming" className="text-[20px]" />
+        Planificar {nombreMes(mesSiguiente)}
+      </Link>
     </div>
   )
 }
