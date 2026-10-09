@@ -214,6 +214,11 @@ manda el gasto al día siguiente.
 - **Cambio de contraseña** en `/config` (`cambiarPassword` en `app/actions/auth.ts`), que
   valida la actual con `current_password`. No hay signup: el usuario se crea desde el
   dashboard de Supabase.
+- **Teclado numérico del importe**: `components/Keypad.tsx` sobre `lib/core/keypad.ts`
+  (puro, con test). Se tipea en **pesos**, no en centavos: `1500` es $1.500 y los centavos
+  solo aparecen si se aprieta la coma. El form manda el texto formateado (`mostrar()`) y la
+  action lo pasa por `parsearImporte`; ese ida y vuelta está testeado, no romperlo.
+  Ya no existe el `keypad-digits` "pendiente" del `DESIGN_SYSTEM.md`.
 - **PWA** (etapa 5, primera parte): `app/manifest.ts`, `public/sw.js` + `RegistrarSW`, e
   íconos generados por `npm run iconos` (`scripts/generar-iconos.ts`, PNG a mano con zlib,
   sin dependencias). Los de `public/` los referencia el manifest; los de `app/`

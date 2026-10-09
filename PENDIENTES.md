@@ -26,17 +26,22 @@ vacía reconstruye todo.
 
 ---
 
-## 2. Teclado numérico para el importe
+## 2. Elegir el comercio sin teclear
 
-**Por qué.** El `DESIGN_SYSTEM.md` describe una pantalla `keypad-digits` que nunca se
-construyó: hoy el importe se carga con un input grande y el teclado del sistema. Es
-justamente la pantalla del "3 taps".
+**Por qué.** Con el teclado numérico, el importe ya se carga sin que aparezca el teclado del
+sistema — pero el campo Comercio sigue siendo un input de texto, así que al tocarlo el
+teclado aparece igual y se come media pantalla. Es lo único que falta para que cargar un
+gasto sean tres taps de verdad.
 
-**Qué hacer.** Traducir el mockup del design system a un componente React. El estado es un
-string de dígitos que se formatea a pesos al vuelo; el valor sale en centavos, así que no hay
-coma ni redondeo que manejar (ver `lib/core/dinero.ts`).
+**Qué hacer.** Reemplazar (o anteponer) al input una grilla con los comercios más usados del
+último mes, como chips grandes. El input queda abajo como salida de escape para los que no
+están en la grilla.
 
-**Criterio de listo**: cargar un gasto sin que aparezca el teclado del sistema.
+- "Más usados" es un cálculo sobre los movimientos: va en `lib/core`, puro y con test.
+- Ojo con el alta de comercios nuevos: hoy se hace desde Config, no desde esta pantalla.
+
+**Criterio de listo**: cargar un gasto habitual sin que aparezca el teclado del sistema en
+ningún momento.
 
 ---
 

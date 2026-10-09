@@ -7,6 +7,8 @@ import { FORMAS_PAGO, ETIQUETA_FORMA_PAGO, type FormaPago } from '@/lib/schemas/
 import type { Comercio } from '@/lib/schemas/comercio'
 import { Card, TituloCard, Banner, campo, botonPrimario } from '@/components/ds'
 import { Icono } from '@/components/Icono'
+import { Keypad } from '@/components/Keypad'
+import { IMPORTE_VACIO, mostrar, estaVacio, type Importe } from '@/lib/core/keypad'
 import { cn } from '@/lib/utils'
 
 /**
@@ -21,6 +23,7 @@ export function FormGasto({
   hoy: string
 }) {
   const [pendiente, startTransition] = useTransition()
+  const [importe, setImporte] = useState<Importe>(IMPORTE_VACIO)
   const [formaPago, setFormaPago] = useState<FormaPago>('tarjeta_credito')
   const [comercioId, setComercioId] = useState('')
   const [busqueda, setBusqueda] = useState('')
@@ -37,6 +40,7 @@ export function FormGasto({
       if (r?.ok) {
         toast.success(r.mensaje)
         formRef.current?.reset()
+        setImporte(IMPORTE_VACIO)
         setComercioId('')
         setBusqueda('')
       } else if (r) {
@@ -59,24 +63,13 @@ export function FormGasto({
       <input type="hidden" name="comercioId" value={comercioId} />
       <input type="hidden" name="formaPago" value={formaPago} />
 
-      {/* El importe es el protagonista: tipografía de teclado numérico. */}
+      {/* El importe es el protagonista. El valor viaja como texto ('1.500,50')
+          porque la action lo parsea con `parsearImporte`. */}
+      <input type="hidden" name="importe" value={mostrar(importe)} />
+
       <Card>
         <TituloCard>Importe</TituloCard>
-        <div className="gap-space-sm flex items-baseline">
-          <span className="text-keypad-digits text-on-surface-variant">$</span>
-          <input
-            name="importe"
-            aria-label="Importe"
-            // decimal (no number) para que el celular abra el teclado numérico
-            // sin spinner ni scroll que cambie el valor sin querer.
-            inputMode="decimal"
-            placeholder="0"
-            required
-            autoFocus
-            autoComplete="off"
-            className="text-display-currency-mobile text-on-surface placeholder:text-on-surface-variant/40 w-full min-w-0 bg-transparent tabular-nums outline-none"
-          />
-        </div>
+        <Keypad valor={importe} onChange={setImporte} />
       </Card>
 
       <Card>
@@ -182,7 +175,7 @@ export function FormGasto({
 
       <button
         type="submit"
-        disabled={pendiente || comercioId === ''}
+        disabled={pendiente || comercioId === '' || estaVacio(importe)}
         className={botonPrimario}
       >
         <Icono nombre={pendiente ? 'hourglass_top' : 'check'} className="text-[20px]" />

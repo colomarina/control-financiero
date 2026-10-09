@@ -1,0 +1,81 @@
+/**
+ * El estado del teclado numérico de la pantalla Cargar.
+ *
+ * Se escribe en PESOS, no en centavos: tipear 1500 es $1.500, y los centavos
+ * solo aparecen si se aprieta la coma. En el Excel original casi ningún gasto
+ * tenía centavos, así que el modo "cajero" (donde 1500 sería $15,00) obligaría
+ * a tipear dos ceros de más casi siempre.
+ *
+ * Nada de floats: el valor sale a centavos con aritmética entera.
+ */
+
+export type Importe = {
+  /** Dígitos de la parte entera, sin separadores. '' = todavía nada. */
+  enteros: string
+  /** Dígitos de centavos, o `null` si no se apretó la coma. */
+  decimales: string | null
+}
+
+export const IMPORTE_VACIO: Importe = { enteros: '', decimales: null }
+
+/** Hasta $999.999.999: más que eso no es un gasto, es un error de tipeo. */
+const MAX_ENTEROS = 9
+
+export function estaVacio(i: Importe): boolean {
+  return i.enteros === '' && (i.decimales === null || i.decimales === '')
+}
+
+export function pulsarDigito(i: Importe, digito: string): Importe {
+  if (!/^[0-9]$/.test(digito)) return i
+
+  if (i.decimales !== null) {
+    // Después de la coma entran dos dígitos y no más.
+    if (i.decimales.length >= 2) return i
+    return { ...i, decimales: i.decimales + digito }
+  }
+
+  // Un cero solo no abre la parte entera: '0' seguido de '5' es 5, no 05.
+  if (i.enteros === '' && digito === '0') return i
+  if (i.enteros.length >= MAX_ENTEROS) return i
+  return { ...i, enteros: i.enteros + digito }
+}
+
+export function pulsarComa(i: Importe): Importe {
+  if (i.decimales !== null) return i // ya estamos en los centavos
+  // Apretar la coma de entrada vale como "0,…".
+  return { enteros: i.enteros === '' ? '0' : i.enteros, decimales: '' }
+}
+
+/** Borra el último caracter tipeado, incluida la coma. */
+export function borrar(i: Importe): Importe {
+  if (i.decimales !== null) {
+    if (i.decimales === '') return { ...i, decimales: null } // se come la coma
+    return { ...i, decimales: i.decimales.slice(0, -1) }
+  }
+  return { ...i, enteros: i.enteros.slice(0, -1) }
+}
+
+/** Separador de miles, sin tocar la parte decimal. */
+function conMiles(enteros: string): string {
+  return enteros.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+}
+
+/**
+ * Lo que se ve en pantalla mientras se tipea: '1.500', '1.500,', '1.500,50'.
+ * Vacío muestra '0' para que el lugar del número nunca quede en blanco.
+ */
+export function mostrar(i: Importe): string {
+  const enteros = i.enteros === '' ? '0' : conMiles(i.enteros)
+  if (i.decimales === null) return enteros
+  return `${enteros},${i.decimales}`
+}
+
+/**
+ * El valor en centavos. Entero puro: los pesos se multiplican por 100 y los
+ * centavos se suman aparte, así que no hay float que redondear.
+ */
+export function aCentavos(i: Importe): number {
+  const pesos = i.enteros === '' ? 0 : Number(i.enteros)
+  const centavos = i.decimales === null ? 0 : Number(i.decimales.padEnd(2, '0') || '0')
+  return pesos * 100 + centavos
+}
