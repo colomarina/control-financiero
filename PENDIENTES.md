@@ -26,25 +26,7 @@ vacía reconstruye todo.
 
 ---
 
-## 2. PWA
-
-**Por qué.** Es lo que más cambia la sensación de uso diario: abrir desde el ícono y que no
-aparezca la barra del navegador. La acción principal del proyecto es cargar un gasto en 3
-taps, y hoy se pierden dos en el navegador.
-
-**Qué hacer.**
-- `manifest.json` con nombre, íconos (192 y 512), `display: standalone`, `theme_color` y
-  `background_color` tomados del design system (surface `#0f131c`).
-- Service worker mínimo: cachear el shell para que abra rápido. Ojo con no cachear datos —
-  los movimientos tienen que llegar siempre frescos del server.
-- Los íconos hay que generarlos: hoy `public/` solo tiene los SVG de create-next-app.
-
-**Criterio de listo**: "Agregar a pantalla de inicio" en el celular deja un ícono propio y
-abre a pantalla completa.
-
----
-
-## 3. Teclado numérico para el importe
+## 2. Teclado numérico para el importe
 
 **Por qué.** El `DESIGN_SYSTEM.md` describe una pantalla `keypad-digits` que nunca se
 construyó: hoy el importe se carga con un input grande y el teclado del sistema. Es
@@ -58,7 +40,7 @@ coma ni redondeo que manejar (ver `lib/core/dinero.ts`).
 
 ---
 
-## 4. Búsqueda y filtros en Historial
+## 3. Búsqueda y filtros en Historial
 
 **Qué hacer.** Buscar por comercio o nota, y filtrar por categoría, forma de pago y rango de
 fechas. La lógica de filtrado va en `lib/core` (pura, con test); la pantalla solo la usa.
@@ -68,7 +50,7 @@ volumen crece — con un año de movimientos todavía entra cómodo en memoria.
 
 ---
 
-## 5. Export
+## 4. Export
 
 **Qué hacer.** Bajar los movimientos de un mes (o del año) a CSV. Sirve para abrir en Excel
 cuando haga falta cruzar algo a mano, y es un respaldo más, aunque no reemplaza el punto 1:
@@ -76,10 +58,8 @@ el CSV no restaura la base.
 
 ---
 
-## 6. Limpieza menor
+## 5. Limpieza menor
 
-- `public/` tiene los 5 SVG de create-next-app (`file`, `globe`, `next`, `vercel`, `window`)
-  que no usa nadie. Se van cuando se generen los íconos de la PWA (punto 2).
 - `lib/core/fijos.test.ts` usa importes reales como fixtures (OSDE $569.995, EDELAP $69.588).
   Hacen los tests legibles y el repo es privado, así que no urge — pero si alguna vez se hace
   público, cambiarlos por números inventados.

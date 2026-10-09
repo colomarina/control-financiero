@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import { Geist } from 'next/font/google'
 import { Toaster } from '@/components/ui/sonner'
+import { RegistrarSW } from '@/components/RegistrarSW'
 import './globals.css'
 
 const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] })
@@ -14,6 +15,15 @@ const MATERIAL_SYMBOLS =
 export const metadata: Metadata = {
   title: 'Control Financiero',
   description: 'Control de gastos personal',
+  manifest: '/manifest.webmanifest',
+  // iOS no lee el manifest: la pantalla completa y el ícono salen de acá.
+  appleWebApp: {
+    capable: true,
+    title: 'Finanzas',
+    // `black-translucent` deja que el fondo suba hasta atrás de la barra de
+    // estado; las safe areas del layout evitan que el header quede tapado.
+    statusBarStyle: 'black-translucent',
+  },
 }
 
 export const viewport: Viewport = {
@@ -40,6 +50,7 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
       <body className="bg-surface text-on-surface flex min-h-full flex-col">
         {children}
         <Toaster position="top-center" />
+        <RegistrarSW />
       </body>
     </html>
   )

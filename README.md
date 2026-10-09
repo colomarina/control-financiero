@@ -71,6 +71,7 @@ El script no usa dependencias: lee el `.xlsx` como ZIP con `zlib`.
 | `npm run test:watch` | Tests en watch |
 | `npm run lint` | ESLint |
 | `npm run migrar <xlsx>` | Genera `supabase/seed.sql` desde el Excel |
+| `npm run iconos` | Regenera los íconos de la PWA (solo si cambian los colores) |
 
 ---
 

@@ -214,3 +214,12 @@ manda el gasto al día siguiente.
 - **Cambio de contraseña** en `/config` (`cambiarPassword` en `app/actions/auth.ts`), que
   valida la actual con `current_password`. No hay signup: el usuario se crea desde el
   dashboard de Supabase.
+- **PWA** (etapa 5, primera parte): `app/manifest.ts`, `public/sw.js` + `RegistrarSW`, e
+  íconos generados por `npm run iconos` (`scripts/generar-iconos.ts`, PNG a mano con zlib,
+  sin dependencias). Los de `public/` los referencia el manifest; los de `app/`
+  (`icon.png`, `apple-icon.png`) son convención de Next.
+  - El service worker **solo cachea `/_next/static/*`**. Nada de páginas, Server Actions ni
+    payloads de RSC: son datos financieros y van siempre a la red.
+  - **Al tocar el matcher de `proxy.ts`**, acordarse de que `manifest.webmanifest` y `sw.js`
+    tienen que seguir afuera. El navegador los pide por su cuenta —el manifest a veces sin
+    cookies— y un redirect al login rompe la instalación.

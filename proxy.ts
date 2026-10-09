@@ -56,7 +56,11 @@ export const config = {
   matcher: [
     /*
      * Todo menos los estáticos y las imágenes.
+     *
+     * `manifest.webmanifest` y `sw.js` tienen que quedar afuera sí o sí: el
+     * navegador los pide por su cuenta (el manifest muchas veces sin cookies),
+     * y si les contesta un redirect al login la app deja de ser instalable.
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|sw.js|.*\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }

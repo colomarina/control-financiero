@@ -10,7 +10,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "migrar": "node scripts/migrar-excel.ts"
+    "migrar": "node scripts/migrar-excel.ts",
+    "iconos": "node scripts/generar-iconos.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
