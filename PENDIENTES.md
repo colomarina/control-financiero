@@ -26,26 +26,7 @@ vacía reconstruye todo.
 
 ---
 
-## 2. Elegir el comercio sin teclear
-
-**Por qué.** Con el teclado numérico, el importe ya se carga sin que aparezca el teclado del
-sistema — pero el campo Comercio sigue siendo un input de texto, así que al tocarlo el
-teclado aparece igual y se come media pantalla. Es lo único que falta para que cargar un
-gasto sean tres taps de verdad.
-
-**Qué hacer.** Reemplazar (o anteponer) al input una grilla con los comercios más usados del
-último mes, como chips grandes. El input queda abajo como salida de escape para los que no
-están en la grilla.
-
-- "Más usados" es un cálculo sobre los movimientos: va en `lib/core`, puro y con test.
-- Ojo con el alta de comercios nuevos: hoy se hace desde Config, no desde esta pantalla.
-
-**Criterio de listo**: cargar un gasto habitual sin que aparezca el teclado del sistema en
-ningún momento.
-
----
-
-## 3. Búsqueda y filtros en Historial
+## 2. Búsqueda y filtros en Historial
 
 **Qué hacer.** Buscar por comercio o nota, y filtrar por categoría, forma de pago y rango de
 fechas. La lógica de filtrado va en `lib/core` (pura, con test); la pantalla solo la usa.
@@ -55,7 +36,7 @@ volumen crece — con un año de movimientos todavía entra cómodo en memoria.
 
 ---
 
-## 4. Export
+## 3. Export
 
 **Qué hacer.** Bajar los movimientos de un mes (o del año) a CSV. Sirve para abrir en Excel
 cuando haga falta cruzar algo a mano, y es un respaldo más, aunque no reemplaza el punto 1:
@@ -63,8 +44,12 @@ el CSV no restaura la base.
 
 ---
 
-## 5. Limpieza menor
+## 4. Limpieza menor
 
+- Precompilar las tablas de `cn` con `withCn` de `cn/next` para sacar ~16 KB gzip del
+  bundle (el config default y el compilador de tailwind-merge viajan al cliente). Suma un
+  archivo generado y wiring en `next.config.ts`; hoy no se paga, pero si la app se siente
+  pesada en 4G es lo primero que se puede recortar.
 - `lib/core/fijos.test.ts` usa importes reales como fixtures (OSDE $569.995, EDELAP $69.588).
   Hacen los tests legibles y el repo es privado, así que no urge — pero si alguna vez se hace
   público, cambiarlos por números inventados.

@@ -17,9 +17,12 @@ import { cn } from '@/lib/utils'
  */
 export function FormGasto({
   comercios,
+  frecuentes,
   hoy,
 }: {
   comercios: Comercio[]
+  /** Atajos: los comercios más usados en los últimos dos meses. */
+  frecuentes: Comercio[]
   hoy: string
 }) {
   const [pendiente, startTransition] = useTransition()
@@ -56,6 +59,16 @@ export function FormGasto({
     setComercioId(hit?.id ?? '')
   }
 
+  /**
+   * Tap en un atajo. Llena también el input de texto: así el campo queda
+   * coherente con lo elegido y se puede corregir desde ahí sin pelear con el
+   * chip seleccionado.
+   */
+  function elegirComercio(c: Comercio) {
+    setComercioId(c.id)
+    setBusqueda(c.nombre)
+  }
+
   const elegido = comercios.find((c) => c.id === comercioId)
 
   return (
@@ -74,13 +87,46 @@ export function FormGasto({
 
       <Card>
         <TituloCard>Comercio</TituloCard>
+
+        {/* Los habituales, a un tap. Con esto y el teclado numérico, cargar un
+            gasto de todos los días no necesita teclado en ningún momento. */}
+        {frecuentes.length > 0 && (
+          <div className="gap-space-sm grid grid-cols-2">
+            {frecuentes.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => elegirComercio(c)}
+                aria-pressed={comercioId === c.id}
+                className={cn(
+                  'px-space-sm gap-space-xs flex touch-manipulation flex-col items-start',
+                  'rounded-lg py-2 text-left transition-transform active:scale-95',
+                  comercioId === c.id
+                    ? 'bg-primary text-on-primary'
+                    : 'bg-surface-container-high text-on-surface',
+                )}
+              >
+                <span className="text-body-md w-full truncate">{c.nombre}</span>
+                <span
+                  className={cn(
+                    'text-body-sm w-full truncate',
+                    comercioId === c.id ? 'text-on-primary/70' : 'text-on-surface-variant',
+                  )}
+                >
+                  {c.categoria}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+
         <input
           id="comercio"
           aria-label="Comercio"
           list={listaId}
           value={busqueda}
           onChange={(e) => alElegirComercio(e.target.value)}
-          placeholder="Empezá a escribir…"
+          placeholder={frecuentes.length > 0 ? 'Otro comercio…' : 'Empezá a escribir…'}
           autoComplete="off"
           required
           className={campo}

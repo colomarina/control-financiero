@@ -214,6 +214,18 @@ manda el gasto al día siguiente.
 - **Cambio de contraseña** en `/config` (`cambiarPassword` en `app/actions/auth.ts`), que
   valida la actual con `current_password`. No hay signup: el usuario se crea desde el
   dashboard de Supabase.
+- **`cn` está configurado, no es el de shadcn pelado** (`lib/utils.ts`). tailwind-merge solo
+  conoce la escala de texto built-in, así que cualquier `text-algo` del `@theme` le parecía un
+  color: `cn('text-keypad-digits text-on-surface')` devolvía solo el color y **toda la
+  tipografía del design system se perdía en silencio**. La lista `TAMANIOS_DE_TEXTO` arregla
+  eso. **Al agregar un `--text-*` al `@theme`, agregarlo también ahí**; `lib/utils.test.ts`
+  compara las dos listas y falla si falta alguno.
+  - Cuesta ~16 KB gzip (el config default de `cn` + su compilador viajan al cliente). Se puede
+    bajar a cero precompilando con `withCn` de `cn/next`, pero suma un archivo generado y
+    wiring en `next.config.ts`: no se pagaba para una app de un solo usuario.
+- **Atajos de comercio** en Cargar: `lib/core/frecuentes.ts` (puro, con test) ordena por usos
+  y desempata por el más reciente. La pantalla pasa los movimientos de dos meses; si no hay
+  ninguno, la grilla no se dibuja y queda el buscador de siempre.
 - **Teclado numérico del importe**: `components/Keypad.tsx` sobre `lib/core/keypad.ts`
   (puro, con test). Se tipea en **pesos**, no en centavos: `1500` es $1.500 y los centavos
   solo aparecen si se aprieta la coma. El form manda el texto formateado (`mostrar()`) y la
