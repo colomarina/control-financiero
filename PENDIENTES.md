@@ -26,17 +26,7 @@ vacía reconstruye todo.
 
 ---
 
-## 2. Búsqueda y filtros en Historial
-
-**Qué hacer.** Buscar por comercio o nota, y filtrar por categoría, forma de pago y rango de
-fechas. La lógica de filtrado va en `lib/core` (pura, con test); la pantalla solo la usa.
-
-**Ojo**: el filtrado conviene hacerlo en el repositorio (`lib/db/movimientos.ts`) si el
-volumen crece — con un año de movimientos todavía entra cómodo en memoria.
-
----
-
-## 3. Export
+## 2. Export
 
 **Qué hacer.** Bajar los movimientos de un mes (o del año) a CSV. Sirve para abrir en Excel
 cuando haga falta cruzar algo a mano, y es un respaldo más, aunque no reemplaza el punto 1:
@@ -44,7 +34,7 @@ el CSV no restaura la base.
 
 ---
 
-## 4. Limpieza menor
+## 3. Limpieza menor
 
 - Precompilar las tablas de `cn` con `withCn` de `cn/next` para sacar ~16 KB gzip del
   bundle (el config default y el compilador de tailwind-merge viajan al cliente). Suma un

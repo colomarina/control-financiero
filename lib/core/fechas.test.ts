@@ -10,6 +10,7 @@ import {
   sumarMeses,
   mesesAnteriores,
   nombreMes,
+  fechaCorta,
 } from './fechas'
 
 describe('fechaEnZona', () => {
@@ -109,5 +110,18 @@ describe('nombreMes', () => {
     expect(nombreMes('2026-09')).toBe('Septiembre 2026')
     expect(nombreMes('2026-01')).toBe('Enero 2026')
     expect(nombreMes('2026-12')).toBe('Diciembre 2026')
+  })
+})
+
+describe('fechaCorta', () => {
+  it('arma dd/mm/aa', () => {
+    expect(fechaCorta('2026-09-15')).toBe('15/09/26')
+    expect(fechaCorta('2026-01-01')).toBe('01/01/26')
+    expect(fechaCorta('1999-12-31')).toBe('31/12/99')
+  })
+
+  it('rechaza una fecha mal formada', () => {
+    expect(() => fechaCorta('2026-9-5')).toThrow()
+    expect(() => fechaCorta('')).toThrow()
   })
 })

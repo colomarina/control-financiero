@@ -109,3 +109,15 @@ export function nombreMes(mes: Mes): string {
   if (!m) throw new Error(`Mes inválido: ${mes}. Se espera "YYYY-MM".`)
   return `${NOMBRES[Number(m[2]) - 1]} ${m[1]}`
 }
+
+/**
+ * Fecha compacta para listas de movimientos: `"2026-09-15"` -> `"15/09/26"`.
+ *
+ * Con el año porque el historial mezcla años, y a dos dígitos para que no
+ * empuje al importe en una pantalla de celular.
+ */
+export function fechaCorta(fecha: FechaISO): string {
+  const m = RE_FECHA.exec(fecha)
+  if (!m) throw new Error(`Fecha inválida: ${fecha}. Se espera "YYYY-MM-DD".`)
+  return `${m[3]}/${m[2]}/${m[1].slice(2)}`
+}

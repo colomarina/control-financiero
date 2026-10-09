@@ -223,6 +223,11 @@ manda el gasto al día siguiente.
   - Cuesta ~16 KB gzip (el config default de `cn` + su compilador viajan al cliente). Se puede
     bajar a cero precompilando con `withCn` de `cn/next`, pero suma un archivo generado y
     wiring en `next.config.ts`: no se pagaba para una app de un solo usuario.
+- **Búsqueda y filtros** en Historial: `lib/core/filtros.ts` (puro, con test) + el client
+  component `BuscadorMovimientos`. Filtra **en el cliente** porque la pantalla ya trae todo
+  el histórico para los agregados; si algún día son miles de filas, el filtrado se baja a
+  `lib/db/movimientos.ts` sin tocar la lógica. El texto se parte en palabras y todas tienen
+  que aparecer, aunque sea en campos distintos.
 - **Atajos de comercio** en Cargar: `lib/core/frecuentes.ts` (puro, con test) ordena por usos
   y desempata por el más reciente. La pantalla pasa los movimientos de dos meses; si no hay
   ninguno, la grilla no se dibuja y queda el buscador de siempre.

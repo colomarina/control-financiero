@@ -11,6 +11,7 @@ import {
 } from '@/lib/core/historial'
 import { formatoARS, porcentaje } from '@/lib/core/dinero'
 import { GraficoEvolucion } from '@/components/GraficoEvolucion'
+import { BuscadorMovimientos } from '@/components/BuscadorMovimientos'
 import {
   Card,
   TituloCard,
@@ -68,6 +69,13 @@ export default async function HistorialPage() {
           </p>
         </Card>
       )}
+
+      <section className="gap-space-sm flex flex-col">
+        <h2 className="text-headline-md text-on-surface px-space-xs">Buscar</h2>
+        {/* `mesesConDatos` los da del más viejo al más nuevo; en un selector se
+            busca primero el mes reciente. */}
+        <BuscadorMovimientos movimientos={movs} meses={[...mesesConDatos(movs)].reverse()} />
+      </section>
 
       <section className="gap-space-sm flex flex-col">
         <h2 className="text-headline-md text-on-surface px-space-xs">Evolución</h2>
