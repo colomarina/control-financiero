@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useLinkStatus } from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Icono } from '@/components/Icono'
 import { cn } from '@/lib/utils'
@@ -16,6 +17,42 @@ const TABS = [
   { href: '/config', etiqueta: 'Config', icono: 'settings' },
 ] as const
 
+/**
+ * El contenido del tab, separado porque `useLinkStatus` solo funciona dentro
+ * de un `<Link>`: es el que sabe si *esa* navegación está en curso.
+ *
+ * Sin esto, entre el tap y la respuesta del server no pasa nada en pantalla y
+ * parece que el toque no registró. El punto no es informar que carga —de eso
+ * se encargan los `loading.tsx`— sino acusar recibo en el acto.
+ */
+function ContenidoTab({
+  etiqueta,
+  icono,
+  activo,
+}: {
+  etiqueta: string
+  icono: string
+  activo: boolean
+}) {
+  const { pending } = useLinkStatus()
+
+  return (
+    <span
+      className={cn(
+        'gap-space-xs px-space-xs py-space-sm flex flex-col items-center transition-colors',
+        activo || pending ? 'text-primary' : 'text-on-surface-variant',
+      )}
+    >
+      <Icono
+        nombre={icono}
+        relleno={activo}
+        className={cn('text-[22px]', pending && !activo && 'animate-pulse')}
+      />
+      <span className="text-label-caps">{etiqueta}</span>
+    </span>
+  )
+}
+
 function Tab({
   href,
   etiqueta,
@@ -29,16 +66,8 @@ function Tab({
 }) {
   return (
     <li className="flex-1">
-      <Link
-        href={href}
-        aria-current={activo ? 'page' : undefined}
-        className={cn(
-          'gap-space-xs px-space-xs py-space-sm flex flex-col items-center transition-colors',
-          activo ? 'text-primary' : 'text-on-surface-variant',
-        )}
-      >
-        <Icono nombre={icono} relleno={activo} className="text-[22px]" />
-        <span className="text-label-caps">{etiqueta}</span>
+      <Link href={href} aria-current={activo ? 'page' : undefined} className="block">
+        <ContenidoTab etiqueta={etiqueta} icono={icono} activo={activo} />
       </Link>
     </li>
   )

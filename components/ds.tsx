@@ -202,6 +202,35 @@ export function Separador() {
 }
 
 /**
+ * Bloque gris que ocupa el lugar de algo que todavía no llegó.
+ *
+ * La gracia de un esqueleto no es "avisar que carga" —para eso alcanza un
+ * spinner— sino **reservar la forma final**: cuando llega el contenido no se
+ * mueve nada de lugar. Por eso cada `loading.tsx` dibuja la silueta de su
+ * pantalla y no un esqueleto genérico.
+ */
+export function Esqueleto({ className }: { className?: string }) {
+  return (
+    <div
+      aria-hidden
+      className={cn('bg-surface-container-high animate-pulse rounded-lg', className)}
+    />
+  )
+}
+
+/**
+ * El envoltorio de un `loading.tsx`: anuncia la espera a los lectores de
+ * pantalla y deja el contenido con el mismo ritmo vertical que la pantalla real.
+ */
+export function Cargando({ children }: { children: ReactNode }) {
+  return (
+    <div role="status" aria-busy="true" aria-label="Cargando" className="gap-space-lg flex flex-col">
+      {children}
+    </div>
+  )
+}
+
+/**
  * Sección plegable. Es una `Card` cuyo contenido se abre y se cierra.
  *
  * Nace de la pantalla de Configuración: apiladas, sus cinco secciones obligaban

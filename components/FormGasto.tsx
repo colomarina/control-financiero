@@ -54,7 +54,20 @@ export function FormGasto({
   const esEdicion = movimiento !== undefined
   const router = useRouter()
 
-  const [pendiente, startTransition] = useTransition()
+  const [enTransicion, startTransition] = useTransition()
+  /**
+   * Se enciende al terminar de guardar o borrar una edición y **no se apaga**:
+   * el componente se desmonta cuando llega la pantalla destino.
+   *
+   * Sin esto, entre que la action responde y la navegación ocurre, el botón
+   * volvía por un instante a decir "Guardar cambios" —como si no hubiera
+   * pasado nada— y recién después saltaba. Ese parpadeo es lo que se sentía
+   * raro.
+   */
+  const [saliendo, setSaliendo] = useState(false)
+  /** Para que el botón de borrar no diga "Guardando…", que sería mentira. */
+  const [borrando, setBorrando] = useState(false)
+  const pendiente = enTransicion || saliendo
   const [importe, setImporte] = useState<Importe>(
     movimiento ? desdeCentavos(movimiento.importeCentavos) : IMPORTE_VACIO,
   )
@@ -91,6 +104,8 @@ export function FormGasto({
 
       if (esEdicion) {
         // Editar es una visita puntual: terminada, se vuelve de donde se vino.
+        // El botón queda en "Guardando…" hasta que la pantalla destino aparece.
+        setSaliendo(true)
         router.back()
         return
       }
@@ -107,12 +122,17 @@ export function FormGasto({
     if (!movimiento) return
     if (!confirm(`¿Borrar el gasto de ${movimiento.comercio}? No se puede deshacer.`)) return
 
+    setBorrando(true)
     startTransition(async () => {
       const r = await eliminarMovimiento(movimiento.id)
       if (r?.ok) {
         toast.success(r.mensaje)
+        setSaliendo(true)
         router.back()
       } else if (r) {
+        // Si falló seguís en la pantalla: el botón tiene que volver a estar
+        // usable para reintentar.
+        setBorrando(false)
         toast.error(r.error)
       }
     })
@@ -303,8 +323,8 @@ export function FormGasto({
           disabled={pendiente}
           className="text-error text-body-md gap-space-sm flex h-12 w-full items-center justify-center rounded-lg transition-transform active:scale-95 disabled:opacity-40"
         >
-          <Icono nombre="delete" className="text-[20px]" />
-          Borrar gasto
+          <Icono nombre={borrando ? 'hourglass_top' : 'delete'} className="text-[20px]" />
+          {borrando ? 'Borrando…' : 'Borrar gasto'}
         </button>
       )}
     </form>
