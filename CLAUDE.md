@@ -229,6 +229,14 @@ plan Free de Supabase no hace backups automáticos.
     original**, así que el arreglo del bug salió gratis.
   - Los componentes de `components/ui/*` que agrega shadcn vienen con `import { cn } from "cn"`.
     **Cambiarlo a `@/lib/utils`** o quedan fuera de esta config y duplican el motor.
+- **Editar y borrar un gasto**: ruta `/movimiento/[id]`, a la que se llega tocando un
+  movimiento en el Home o en el buscador del Historial.
+  - **`FormGasto` es uno solo** para cargar y para editar: con la prop `movimiento` cambia de
+    modo. No duplicar el formulario — si se separan, un gasto editado termina cumpliendo
+    reglas distintas a uno nuevo. `editarMovimiento` valida con el mismo schema que el alta.
+  - Al editar se hace `revalidatePath('/', 'layout')`, no solo `/`: un movimiento puede
+    cambiar de mes, de comercio o de forma de pago, y eso mueve topes, predicción, fijos e
+    historial a la vez.
 - **Campo de fecha con calendario** (`components/CampoFecha.tsx`), en lugar del
   `<input type="date">`. El valor sigue viajando como `"YYYY-MM-DD"` en un input oculto.
   - El calendario (`CalendarioFecha` + `react-day-picker`) pesa ~165 KB y vive en su propio

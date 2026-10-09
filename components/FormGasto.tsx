@@ -1,40 +1,72 @@
 'use client'
 
 import { useId, useRef, useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { guardarMovimiento } from '@/app/actions/movimientos'
-import { FORMAS_PAGO, ETIQUETA_FORMA_PAGO, type FormaPago } from '@/lib/schemas/movimiento'
+import {
+  guardarMovimiento,
+  editarMovimiento,
+  eliminarMovimiento,
+} from '@/app/actions/movimientos'
+import {
+  FORMAS_PAGO,
+  ETIQUETA_FORMA_PAGO,
+  type FormaPago,
+  type MovimientoDetalle,
+} from '@/lib/schemas/movimiento'
 import type { Comercio } from '@/lib/schemas/comercio'
 import { Card, TituloCard, Banner, campo, botonPrimario } from '@/components/ds'
 import { Icono } from '@/components/Icono'
 import { Keypad } from '@/components/Keypad'
 import { CampoFecha } from '@/components/CampoFecha'
-import { IMPORTE_VACIO, mostrar, estaVacio, type Importe } from '@/lib/core/keypad'
+import {
+  IMPORTE_VACIO,
+  desdeCentavos,
+  mostrar,
+  estaVacio,
+  type Importe,
+} from '@/lib/core/keypad'
 import { cn } from '@/lib/utils'
 
 /**
- * Pantalla de carga. Pensada para usarse parado en la caja del super:
- * importe primero y grande, comercio con autocomplete, forma de pago en chips.
+ * El formulario de un gasto, que sirve para cargarlo y para editarlo.
+ *
+ * Pensado para usarse parado en la caja del super: importe primero y grande,
+ * comercio a un tap, forma de pago en chips.
+ *
+ * Es uno solo a propósito. Si la edición tuviera su propio formulario, las dos
+ * pantallas se irían separando —un campo nuevo acá, una validación distinta
+ * allá— hasta que un gasto editado dejara de cumplir las reglas de uno nuevo.
  */
 export function FormGasto({
   comercios,
   frecuentes,
   hoy,
+  movimiento,
 }: {
   comercios: Comercio[]
   /** Atajos: los comercios más usados en los últimos dos meses. */
   frecuentes: Comercio[]
   hoy: string
+  /** Si viene, el formulario edita ese movimiento en vez de crear uno nuevo. */
+  movimiento?: MovimientoDetalle
 }) {
+  const esEdicion = movimiento !== undefined
+  const router = useRouter()
+
   const [pendiente, startTransition] = useTransition()
-  const [importe, setImporte] = useState<Importe>(IMPORTE_VACIO)
+  const [importe, setImporte] = useState<Importe>(
+    movimiento ? desdeCentavos(movimiento.importeCentavos) : IMPORTE_VACIO,
+  )
   // `form.reset()` no alcanza para un campo controlado: sin esto, después de
   // cargar un gasto de ayer el siguiente arrancaría también en ayer. Cambiar
   // la key remonta el campo y vuelve a hoy.
   const [versionFecha, setVersionFecha] = useState(0)
-  const [formaPago, setFormaPago] = useState<FormaPago>('tarjeta_credito')
-  const [comercioId, setComercioId] = useState('')
-  const [busqueda, setBusqueda] = useState('')
+  const [formaPago, setFormaPago] = useState<FormaPago>(
+    movimiento?.formaPago ?? 'tarjeta_credito',
+  )
+  const [comercioId, setComercioId] = useState(movimiento?.comercioId ?? '')
+  const [busqueda, setBusqueda] = useState(movimiento?.comercio ?? '')
   const listaId = useId()
   const formRef = useRef<HTMLFormElement>(null)
 
@@ -44,14 +76,42 @@ export function FormGasto({
    */
   function enviar(formData: FormData) {
     startTransition(async () => {
-      const r = await guardarMovimiento(null, formData)
+      const r = esEdicion
+        ? await editarMovimiento(null, formData)
+        : await guardarMovimiento(null, formData)
+
+      if (!r) return
+
+      if (!r.ok) {
+        toast.error(r.error)
+        return
+      }
+
+      toast.success(r.mensaje)
+
+      if (esEdicion) {
+        // Editar es una visita puntual: terminada, se vuelve de donde se vino.
+        router.back()
+        return
+      }
+
+      formRef.current?.reset()
+      setImporte(IMPORTE_VACIO)
+      setComercioId('')
+      setBusqueda('')
+      setVersionFecha((v) => v + 1)
+    })
+  }
+
+  function borrar() {
+    if (!movimiento) return
+    if (!confirm(`¿Borrar el gasto de ${movimiento.comercio}? No se puede deshacer.`)) return
+
+    startTransition(async () => {
+      const r = await eliminarMovimiento(movimiento.id)
       if (r?.ok) {
         toast.success(r.mensaje)
-        formRef.current?.reset()
-        setImporte(IMPORTE_VACIO)
-        setComercioId('')
-        setBusqueda('')
-        setVersionFecha((v) => v + 1)
+        router.back()
       } else if (r) {
         toast.error(r.error)
       }
@@ -79,6 +139,7 @@ export function FormGasto({
 
   return (
     <form ref={formRef} action={enviar} className="gap-space-md flex flex-col">
+      {movimiento && <input type="hidden" name="id" value={movimiento.id} />}
       <input type="hidden" name="comercioId" value={comercioId} />
       <input type="hidden" name="formaPago" value={formaPago} />
 
@@ -192,7 +253,11 @@ export function FormGasto({
         <div className="gap-space-sm grid grid-cols-2">
           <div className="gap-space-xs flex flex-col">
             <TituloCard>Fecha</TituloCard>
-            <CampoFecha key={versionFecha} name="fecha" defaultValue={hoy} />
+            <CampoFecha
+              key={versionFecha}
+              name="fecha"
+              defaultValue={movimiento?.fecha ?? hoy}
+            />
           </div>
           <div className="gap-space-xs flex flex-col">
             <TituloCard>Banco</TituloCard>
@@ -201,6 +266,7 @@ export function FormGasto({
               aria-label="Banco"
               placeholder="Opcional"
               autoComplete="off"
+              defaultValue={movimiento?.banco ?? ''}
               className={campo}
             />
           </div>
@@ -213,6 +279,7 @@ export function FormGasto({
             aria-label="Nota"
             placeholder="Opcional"
             autoComplete="off"
+            defaultValue={movimiento?.nota ?? ''}
             className={campo}
           />
         </div>
@@ -224,8 +291,22 @@ export function FormGasto({
         className={botonPrimario}
       >
         <Icono nombre={pendiente ? 'hourglass_top' : 'check'} className="text-[20px]" />
-        {pendiente ? 'Guardando…' : 'Guardar'}
+        {pendiente ? 'Guardando…' : esEdicion ? 'Guardar cambios' : 'Guardar'}
       </button>
+
+      {esEdicion && (
+        // Borrar va último y en rojo sobre fondo plano: es destructivo, no
+        // tiene que competir visualmente con guardar.
+        <button
+          type="button"
+          onClick={borrar}
+          disabled={pendiente}
+          className="text-error text-body-md gap-space-sm flex h-12 w-full items-center justify-center rounded-lg transition-transform active:scale-95 disabled:opacity-40"
+        >
+          <Icono nombre="delete" className="text-[20px]" />
+          Borrar gasto
+        </button>
+      )}
     </form>
   )
 }

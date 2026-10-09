@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { formatoARS } from '@/lib/core/dinero'
 import { diaDe } from '@/lib/core/fechas'
 import { ETIQUETA_FORMA_PAGO, type MovimientoDetalle } from '@/lib/schemas/movimiento'
@@ -52,13 +53,19 @@ export function ListaMovimientos({ movimientos }: { movimientos: MovimientoDetal
             {delDia.map((m, i) => (
               <div key={m.id}>
                 {i > 0 && <Separador />}
-                <ItemLista
-                  icono={iconoDe(m.categoria)}
-                  tonoIcono={m.esFijo ? 'neutro' : 'ok'}
-                  titulo={m.comercio}
-                  detalle={`${m.categoria}${m.subcategoria ? ` · ${m.subcategoria}` : ''} · ${ETIQUETA_FORMA_PAGO[m.formaPago]}`}
-                  derecha={<Monto>{formatoARS(m.importeCentavos)}</Monto>}
-                />
+                {/* Tocar un movimiento lo abre para editar o borrar. */}
+                <Link
+                  href={`/movimiento/${m.id}`}
+                  className="hover:bg-surface-container-high block rounded-lg transition-colors"
+                >
+                  <ItemLista
+                    icono={iconoDe(m.categoria)}
+                    tonoIcono={m.esFijo ? 'neutro' : 'ok'}
+                    titulo={m.comercio}
+                    detalle={`${m.categoria}${m.subcategoria ? ` · ${m.subcategoria}` : ''} · ${ETIQUETA_FORMA_PAGO[m.formaPago]}`}
+                    derecha={<Monto>{formatoARS(m.importeCentavos)}</Monto>}
+                  />
+                </Link>
               </div>
             ))}
           </Card>

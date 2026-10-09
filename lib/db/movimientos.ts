@@ -125,3 +125,45 @@ export async function borrarMovimiento(id: string): Promise<void> {
   const { error } = await supabase.from('movimientos').delete().eq('id', id)
   if (error) throw new Error(`No pude borrar el movimiento: ${error.message}`)
 }
+
+/** Un movimiento por id, o `null` si no existe (o no es de este usuario: lo filtra el RLS). */
+export async function getMovimiento(id: string): Promise<MovimientoDetalle | null> {
+  const supabase = await crearCliente()
+  const { data, error } = await supabase
+    .from('movimientos_detalle')
+    .select(COLUMNAS)
+    .eq('id', id)
+    .maybeSingle()
+
+  if (error) throw new Error(`No pude leer el movimiento: ${error.message}`)
+  return data ? aDominio(data as unknown as FilaDetalle) : null
+}
+
+export async function actualizarMovimiento(
+  id: string,
+  m: {
+    fecha: string
+    comercioId: string
+    importeCentavos: number
+    formaPago: FormaPago
+    banco: string | null
+    tarjeta: string | null
+    nota: string | null
+  },
+): Promise<void> {
+  const supabase = await crearCliente()
+  const { error } = await supabase
+    .from('movimientos')
+    .update({
+      fecha: m.fecha,
+      comercio_id: m.comercioId,
+      importe_centavos: m.importeCentavos,
+      forma_pago: m.formaPago,
+      banco: m.banco,
+      tarjeta: m.tarjeta,
+      nota: m.nota,
+    })
+    .eq('id', id)
+
+  if (error) throw new Error(`No pude actualizar el movimiento: ${error.message}`)
+}

@@ -7,6 +7,7 @@ import {
   borrar,
   mostrar,
   aCentavos,
+  desdeCentavos,
   type Importe,
 } from './keypad'
 import { parsearImporte } from './dinero'
@@ -147,5 +148,27 @@ describe('entrada inválida', () => {
   it('ignora lo que no sea un dígito', () => {
     const i = pulsarDigito(tipear('15'), 'a')
     expect(mostrar(i)).toBe('15')
+  })
+})
+
+describe('desdeCentavos', () => {
+  it('reconstruye lo que se habría tipeado', () => {
+    expect(mostrar(desdeCentavos(150_000))).toBe('1.500')
+    expect(mostrar(desdeCentavos(150_050))).toBe('1.500,50')
+    expect(mostrar(desdeCentavos(75))).toBe('0,75')
+  })
+
+  it('no deja la coma si no hay centavos', () => {
+    expect(desdeCentavos(150_000).decimales).toBeNull()
+  })
+
+  it('el cero queda vacío, como un keypad recién abierto', () => {
+    expect(estaVacio(desdeCentavos(0))).toBe(true)
+  })
+
+  it('ida y vuelta con aCentavos', () => {
+    for (const c of [1, 75, 100, 150_000, 150_050, 99_999_999]) {
+      expect(aCentavos(desdeCentavos(c))).toBe(c)
+    }
   })
 })

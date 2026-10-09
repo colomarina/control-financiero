@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import Link from 'next/link'
 import { filtrarMovimientos, categoriasDe, totalDe } from '@/lib/core/filtros'
 import { formatoARS } from '@/lib/core/dinero'
 import { fechaCorta, nombreMes, diasDelMes, type Mes } from '@/lib/core/fechas'
@@ -153,13 +154,19 @@ export function BuscadorMovimientos({
           {filtrados.slice(0, TOPE_VISIBLE).map((m, i) => (
             <div key={m.id}>
               {i > 0 && <Separador />}
-              <ItemLista
-                icono={iconoDe(m.categoria)}
-                tonoIcono={m.esFijo ? 'neutro' : 'ok'}
-                titulo={m.comercio}
-                detalle={`${fechaCorta(m.fecha)} · ${m.categoria} · ${ETIQUETA_FORMA_PAGO[m.formaPago]}`}
-                derecha={<Monto>{formatoARS(m.importeCentavos)}</Monto>}
-              />
+              {/* Tocar un resultado lo abre para editar o borrar. */}
+              <Link
+                href={`/movimiento/${m.id}`}
+                className="hover:bg-surface-container-high block rounded-lg transition-colors"
+              >
+                <ItemLista
+                  icono={iconoDe(m.categoria)}
+                  tonoIcono={m.esFijo ? 'neutro' : 'ok'}
+                  titulo={m.comercio}
+                  detalle={`${fechaCorta(m.fecha)} · ${m.categoria} · ${ETIQUETA_FORMA_PAGO[m.formaPago]}`}
+                  derecha={<Monto>{formatoARS(m.importeCentavos)}</Monto>}
+                />
+              </Link>
             </div>
           ))}
         </Card>

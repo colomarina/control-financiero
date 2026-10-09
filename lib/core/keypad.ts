@@ -79,3 +79,22 @@ export function aCentavos(i: Importe): number {
   const centavos = i.decimales === null ? 0 : Number(i.decimales.padEnd(2, '0') || '0')
   return pesos * 100 + centavos
 }
+
+/**
+ * El camino inverso: centavos -> lo que habría tipeado alguien para llegar a
+ * ese número. Lo usa la edición de un gasto, que arranca con el importe ya
+ * cargado.
+ *
+ * Si no hay centavos no deja la coma puesta: `150000` vuelve como "1.500" y no
+ * como "1.500,00", que es como se habría tipeado.
+ */
+export function desdeCentavos(centavos: number): Importe {
+  const abs = Math.abs(Math.round(centavos))
+  const pesos = Math.floor(abs / 100)
+  const resto = abs % 100
+
+  return {
+    enteros: pesos === 0 ? '' : String(pesos),
+    decimales: resto === 0 ? null : String(resto).padStart(2, '0'),
+  }
+}
