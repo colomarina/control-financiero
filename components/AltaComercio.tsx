@@ -3,7 +3,7 @@
 import { useRef, useTransition } from 'react'
 import { toast } from 'sonner'
 import { nuevoComercio } from '@/app/actions/comercios'
-import { Card, campo, botonPrimario, etiqueta } from '@/components/ds'
+import { Banner, campo, botonPrimario, etiqueta } from '@/components/ds'
 import { Icono } from '@/components/Icono'
 
 export function AltaComercio({ categorias }: { categorias: string[] }) {
@@ -24,9 +24,11 @@ export function AltaComercio({ categorias }: { categorias: string[] }) {
   }
 
   return (
-    <Card>
+    // Sin `Card`: vive dentro de la `Seccion` "Catálogo". El fondo más claro lo
+    // despega de la lista de comercios que viene abajo.
+    <div className="bg-surface-container-high p-space-sm rounded-lg">
       <details>
-        <summary className="text-body-md text-on-surface gap-space-sm flex cursor-pointer list-none items-center">
+        <summary className="text-body-md text-on-surface gap-space-sm flex cursor-pointer list-none items-center select-none">
           <Icono nombre="add_circle" className="text-primary text-[20px]" />
           Agregar un comercio
         </summary>
@@ -37,6 +39,14 @@ export function AltaComercio({ categorias }: { categorias: string[] }) {
               <option key={c} value={c} />
             ))}
           </datalist>
+
+          {/* La explicación va acá, que es cuando importa: al crear el comercio
+              se está decidiendo cómo se van a clasificar todos sus gastos. */}
+          <Banner icono="auto_awesome">
+            De acá salen la categoría, la subcategoría y si el gasto es fijo. Los movimientos
+            no copian esos datos: los heredan, así que editar un comercio reclasifica también
+            sus movimientos viejos.
+          </Banner>
 
           <div className="gap-space-xs flex flex-col">
             <label htmlFor="nombre" className={etiqueta}>
@@ -83,6 +93,6 @@ export function AltaComercio({ categorias }: { categorias: string[] }) {
           </button>
         </form>
       </details>
-    </Card>
+    </div>
   )
 }

@@ -5,8 +5,19 @@ import { FormConfig } from '@/components/FormConfig'
 import { FormPassword } from '@/components/FormPassword'
 import { CatalogoComercios } from '@/components/CatalogoComercios'
 import { AltaComercio } from '@/components/AltaComercio'
-import { Banner } from '@/components/ds'
+import { Seccion } from '@/components/ds'
 
+/**
+ * Configuración, en secciones plegables.
+ *
+ * Apiladas y abiertas, las cinco secciones obligaban a scrollear tres
+ * pantallas para llegar al catálogo —que es lo que más se toca— y dejaban el
+ * cambio de contraseña debajo de la lista entera de comercios. Plegadas, la
+ * pantalla entra de una y cada cosa está a un tap.
+ *
+ * El catálogo arranca abierto porque es la sección que se usa seguido; los
+ * parámetros se tocan un par de veces por año.
+ */
 export default async function ConfigPage() {
   const [config, comercios, categorias, usuario] = await Promise.all([
     getConfig(),
@@ -18,36 +29,23 @@ export default async function ConfigPage() {
   const activos = comercios.filter((c) => c.activo).length
 
   return (
-    <div className="gap-space-xl flex flex-col">
+    <div className="gap-space-md flex flex-col">
       <header>
         <h1 className="text-headline-lg-mobile text-on-surface">Configuración</h1>
       </header>
 
+      {/* Las tres secciones de parámetros son un solo formulario con un solo
+          botón: los campos de una sección cerrada se envían igual. */}
       <FormConfig config={config} />
 
-      <section className="gap-space-sm flex flex-col">
-        <div className="px-space-xs flex items-baseline justify-between">
-          <h2 className="text-headline-md text-on-surface">Catálogo</h2>
-          <span className="text-body-sm text-on-surface-variant tabular-nums">
-            {activos} activos
-          </span>
-        </div>
-
-        <Banner icono="category">
-          De acá salen la categoría, la subcategoría y si un gasto es fijo. Los
-          movimientos no copian esos datos: los heredan, así que cambiar un
-          comercio reclasifica también sus movimientos viejos.
-        </Banner>
-
+      <Seccion titulo="Catálogo" contador={`${activos} activos`} abierta>
         <AltaComercio categorias={categorias} />
-
         <CatalogoComercios comercios={comercios} categorias={categorias} />
-      </section>
+      </Seccion>
 
-      <section className="gap-space-sm flex flex-col">
-        <h2 className="text-headline-md text-on-surface px-space-xs">Cuenta</h2>
+      <Seccion titulo="Cuenta" contador={usuario?.email ?? undefined}>
         <FormPassword email={usuario?.email ?? ''} />
-      </section>
+      </Seccion>
     </div>
   )
 }

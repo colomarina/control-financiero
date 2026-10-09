@@ -3,7 +3,7 @@
 import { useRef, useTransition } from 'react'
 import { toast } from 'sonner'
 import { cambiarPassword } from '@/app/actions/auth'
-import { Card, TituloCard, campo, botonSecundario, etiqueta } from '@/components/ds'
+import { campo, botonSecundario, etiqueta } from '@/components/ds'
 
 /**
  * Cambio de contraseña. La valida el server contra la actual (`current_password`),
@@ -26,12 +26,12 @@ export function FormPassword({ email }: { email: string }) {
   }
 
   return (
-    <form ref={formRef} action={enviar}>
-      <Card>
-        <TituloCard>Contraseña</TituloCard>
+    <form ref={formRef} action={enviar} className="gap-space-md flex flex-col">
+      {/* Sin `Card`: ya vive dentro de una `Seccion`, que pone el fondo y el
+          título. */}
 
-        {/* El mail, oculto, para que el gestor de contraseñas sepa a qué cuenta
-            corresponde la que está por guardar. */}
+      {/* El mail, oculto, para que el gestor de contraseñas sepa a qué cuenta
+          corresponde la que está por guardar. */}
         <input
           type="text"
           name="username"
@@ -93,7 +93,6 @@ export function FormPassword({ email }: { email: string }) {
         >
           {pendiente ? 'Cambiando…' : 'Cambiar contraseña'}
         </button>
-      </Card>
     </form>
   )
 }

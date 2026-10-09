@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 import { guardarParametros } from '@/app/actions/config'
 import type { Config } from '@/lib/db/config'
 import { aPesos } from '@/lib/core/dinero'
-import { Card, TituloCard, campo, botonPrimario, etiqueta } from '@/components/ds'
+import { Seccion, campo, botonPrimario, etiqueta } from '@/components/ds'
 
 /** Un campo con su ayuda debajo. */
 function Campo({
@@ -43,8 +43,7 @@ export function FormConfig({ config }: { config: Config }) {
 
   return (
     <form ref={formRef} action={enviar} className="gap-space-md flex flex-col">
-      <Card>
-        <TituloCard>Topes del mes</TituloCard>
+      <Seccion titulo="Topes del mes">
 
         <Campo
           id="topeTarjeta"
@@ -71,10 +70,9 @@ export function FormConfig({ config }: { config: Config }) {
           defaultValue={config.umbralCercaPct}
           ayuda="A partir de qué % del tope la barra pasa a ámbar. En el Excel convivían 80, 85 y 90; acá es uno solo."
         />
-      </Card>
+      </Seccion>
 
-      <Card>
-        <TituloCard>Predicción</TituloCard>
+      <Seccion titulo="Predicción">
 
         <Campo
           id="umbralDia"
@@ -95,10 +93,9 @@ export function FormConfig({ config }: { config: Config }) {
           defaultValue={config.mesesHistorico}
           ayuda="Cuántos meses cerrados mira el promedio que se usa al arranque del mes."
         />
-      </Card>
+      </Seccion>
 
-      <Card>
-        <TituloCard>Contexto</TituloCard>
+      <Seccion titulo="Contexto">
 
         <Campo
           id="sueldo"
@@ -129,7 +126,7 @@ export function FormConfig({ config }: { config: Config }) {
             defaultValue={aPesos(config.cotizacionUsdCentavos)}
           />
         </div>
-      </Card>
+      </Seccion>
 
       <button type="submit" disabled={pendiente} className={botonPrimario}>
         {pendiente ? 'Guardando…' : 'Guardar'}

@@ -201,6 +201,54 @@ export function Separador() {
   return <div className="bg-surface-container-high h-px" role="presentation" />
 }
 
+/**
+ * Sección plegable. Es una `Card` cuyo contenido se abre y se cierra.
+ *
+ * Nace de la pantalla de Configuración: apiladas, sus cinco secciones obligaban
+ * a scrollear tres pantallas para llegar al catálogo. Plegadas, la pantalla
+ * entra entera y cada cosa está a un tap.
+ *
+ * Usa `<details>` nativo: funciona sin JavaScript, el navegador se encarga de
+ * la accesibilidad (rol, foco, teclado) y —clave para los formularios— los
+ * campos de una sección cerrada **siguen en el DOM y se envían igual**.
+ */
+export function Seccion({
+  titulo,
+  contador,
+  abierta = false,
+  children,
+}: {
+  titulo: string
+  /** Dato al margen del título, como cuántos ítems hay adentro. */
+  contador?: ReactNode
+  abierta?: boolean
+  children: ReactNode
+}) {
+  return (
+    <details open={abierta} className="bg-surface-container group rounded-xl shadow-md">
+      <summary
+        className={cn(
+          'p-space-md gap-space-sm flex cursor-pointer list-none items-center',
+          // El summary es el área táctil de toda la sección: que no se
+          // seleccione el texto al tocarlo dos veces seguidas.
+          'select-none',
+        )}
+      >
+        <h2 className="text-headline-sm text-on-surface flex-1">{titulo}</h2>
+        {contador !== undefined && (
+          <span className="text-body-sm text-on-surface-variant tabular-nums">{contador}</span>
+        )}
+        <Icono
+          nombre="expand_more"
+          className="text-on-surface-variant text-[22px] transition-transform group-open:rotate-180"
+        />
+      </summary>
+
+      <div className="px-space-md pb-space-md gap-space-md flex flex-col">{children}</div>
+    </details>
+  )
+}
+
 /** Mini-banner informativo: una explicación corta con ícono. */
 export function Banner({
   icono = 'info',

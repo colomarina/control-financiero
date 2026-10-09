@@ -1,7 +1,11 @@
+'use client'
+
+import { useMemo, useState } from 'react'
 import type { Comercio } from '@/lib/schemas/comercio'
 import { actualizarComercio } from '@/app/actions/comercios'
 import { iconoDe } from '@/components/ListaMovimientos'
 import { Icono } from '@/components/Icono'
+import { normalizar } from '@/lib/core/filtros'
 import {
   Card,
   Badge,
@@ -25,17 +29,53 @@ export function CatalogoComercios({
   categorias: string[]
 }) {
   const listaCategorias = 'categorias-existentes'
+  const [busqueda, setBusqueda] = useState('')
+
+  // El filtro mira nombre, categoría y subcategoría, sin acentos: con 50
+  // comercios encontrar uno para editar también era scroll.
+  const visibles = useMemo(() => {
+    const q = normalizar(busqueda)
+    if (q === '') return comercios
+    return comercios.filter((c) =>
+      normalizar(`${c.nombre} ${c.categoria} ${c.subcategoria ?? ''}`).includes(q),
+    )
+  }, [comercios, busqueda])
 
   return (
-    <Card className="p-space-sm gap-0">
+    <div className="gap-space-sm flex flex-col">
+      {/* El buscador solo aparece cuando la lista ya es incómoda de recorrer. */}
+      {comercios.length > 8 && (
+        <div className="relative">
+          <span className="text-on-surface-variant pointer-events-none absolute inset-y-0 left-3 grid place-items-center">
+            <Icono nombre="search" className="text-[20px]" />
+          </span>
+          <input
+            type="search"
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            placeholder="Buscar comercio…"
+            aria-label="Buscar en el catálogo"
+            autoComplete="off"
+            className={`${campo} pl-11`}
+          />
+        </div>
+      )}
+
+      <Card className="p-space-sm gap-0">
       <datalist id={listaCategorias}>
         {categorias.map((c) => (
           <option key={c} value={c} />
         ))}
       </datalist>
 
+      {visibles.length === 0 && (
+        <p className="text-body-sm text-on-surface-variant p-space-sm text-center">
+          Ningún comercio coincide con “{busqueda}”.
+        </p>
+      )}
+
       <ul>
-        {comercios.map((c, i) => (
+        {visibles.map((c, i) => (
           <li key={c.id}>
             {i > 0 && <Separador />}
             <details className="p-space-sm">
@@ -146,6 +186,7 @@ export function CatalogoComercios({
           </li>
         ))}
       </ul>
-    </Card>
+      </Card>
+    </div>
   )
 }
