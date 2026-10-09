@@ -9,8 +9,8 @@ plan); todo lo demás —topes, predicción de cierre, si un fijo está pagado�
 **Stack**: Next.js 16 (App Router) · TypeScript · Supabase (Postgres + auth) · Tailwind v4 ·
 Zod · Vitest · Recharts. Deploy en Vercel.
 
-Documentación: [`ARQUITECTURA_APP_FINANZAS.md`](./ARQUITECTURA_APP_FINANZAS.md) ·
-[`DESIGN_SYSTEM.md`](./DESIGN_SYSTEM.md) · [`CLAUDE.md`](./CLAUDE.md)
+Documentación: [`ARQUITECTURA_APP_FINANZAS.md`](./docs/ARQUITECTURA_APP_FINANZAS.md) ·
+[`DESIGN_SYSTEM.md`](./docs/DESIGN_SYSTEM.md) · [`CLAUDE.md`](./CLAUDE.md)
 
 ---
 
@@ -87,6 +87,8 @@ lib/db/…           único lugar que habla con supabase-js
 lib/schemas/…      Zod (la validación es la fuente de los tipos)
 components/…       UI propia; `ds.tsx` son las piezas del design system
 supabase/…         schema.sql (DDL). El seed.sql que genera `migrar` no se versiona.
+scripts/…          utilidades sueltas: importar el Excel, generar los íconos
+docs/…             arquitectura, design system y pendientes
 proxy.ts           auth: refresca sesión y manda al login (en Next 16 el middleware se llama así)
 ```
 
@@ -111,7 +113,7 @@ en Environment Variables. No hace falta nada más.
 
 Etapas 0–5 completas: movimientos, topes, predicción B+E, presupuesto, historial, fijos,
 gráficos, PWA instalable, teclado numérico y búsqueda con filtros. El export a CSV se
-descartó (ver [`PENDIENTES.md`](./PENDIENTES.md)).
+descartó (ver [`PENDIENTES.md`](./docs/PENDIENTES.md)).
 
 Lo único que queda es un backup propio de la base: el plan Free de Supabase no hace backups
 automáticos.

@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils'
 
 /**
  * Las piezas del design system que se repiten en todas las pantallas.
- * Ver DESIGN_SYSTEM.md › "Patrones de componentes".
+ * Ver docs/DESIGN_SYSTEM.md › "Patrones de componentes".
  */
 
 /** El semáforo de la app. Un solo lugar donde vive el mapa estado -> color. */

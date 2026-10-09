@@ -6,9 +6,13 @@ suposición por defecto. Si algo acá choca con un pedido puntual, preguntar ant
 App web **personal** (un solo usuario) para trackear finanzas mensuales. **Mobile-first**:
 la acción principal es cargar un gasto desde el celular en 3 taps.
 
-Documentos de referencia (en la raíz / `/docs`):
-- `ARQUITECTURA_APP_FINANZAS.md` — arquitectura completa y orden de construcción.
-- `DESIGN_SYSTEM.md` — tokens y reglas visuales. **Fuente de verdad de la UI.**
+Documentos de referencia (en `/docs`):
+- `docs/ARQUITECTURA_APP_FINANZAS.md` — arquitectura completa y orden de construcción.
+- `docs/DESIGN_SYSTEM.md` — tokens y reglas visuales. **Fuente de verdad de la UI.**
+- `docs/PENDIENTES.md` — lo que queda por hacer, y lo descartado con su porqué.
+
+Este archivo y el `README.md` se quedan en la raíz: Claude Code lee el `CLAUDE.md` de ahí y
+GitHub muestra el README en la portada.
 
 ---
 
@@ -200,11 +204,9 @@ manda el gasto al día siguiente.
 
 ## Pendiente
 
-- Etapa 5: PWA, búsqueda, filtros, export.
-- El `DESIGN_SYSTEM.md` nombra una pantalla de teclado numérico (`keypad-digits`) que
-  todavía no existe: hoy el importe se carga con un input grande.
-- `lib/core/fijos.test.ts` usa importes reales como fixtures (OSDE, EDELAP). Si alguna vez
-  el repo deja de ser privado, cambiarlos por números inventados.
+Las etapas 0–5 están completas. Lo que queda, con su contexto, vive en
+[`docs/PENDIENTES.md`](docs/PENDIENTES.md) — hoy es solo el backup de la base, porque el
+plan Free de Supabase no hace backups automáticos.
 
 ## Ya hecho (no volver a proponerlo)
 

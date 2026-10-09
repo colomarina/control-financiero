@@ -3,7 +3,7 @@
 Lo que queda. Cada tarea trae el contexto necesario para retomarla sin releer todo el
 proyecto.
 
-Lo ya terminado (etapas 0–4, deploy, cambio de contraseña) está en `CLAUDE.md`.
+Lo ya terminado (etapas 0–4, deploy, cambio de contraseña) está en el `CLAUDE.md` de la raíz.
 
 ---
 
