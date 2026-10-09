@@ -1,26 +1,279 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@custom-variant dark (&:is(.dark *));
+
+/* ===========================================================================
+   DESIGN SYSTEM — Control Financiero
+   Material 3 dark, acento verde menta. Ver DESIGN_SYSTEM.md.
+
+   Tailwind v4 es CSS-first: los tokens viven acá, no en un tailwind.config.ts.
+   Los nombres son los mismos que documenta el design system, así que
+   `bg-surface-container`, `text-label-numeric` y `p-space-md` funcionan igual.
+   =========================================================================== */
+@theme {
+  /* --- Superficies (de más oscura a más clara) --- */
+  --color-surface: #0f131c;
+  --color-surface-dim: #0f131c;
+  --color-surface-bright: #353943;
+  --color-surface-container-lowest: #0a0e17;
+  --color-surface-container-low: #181b25;
+  --color-surface-container: #1c1f29;
+  --color-surface-container-high: #262a34;
+  --color-surface-container-highest: #31353f;
+  --color-surface-variant: #31353f;
+  --color-surface-tint: #4edea3;
+  --color-on-background: #dfe2ef;
+  --color-on-surface: #dfe2ef;
+  --color-on-surface-variant: #bbcabf;
+  --color-inverse-surface: #dfe2ef;
+  --color-inverse-on-surface: #2c303a;
+
+  /* --- Primary · verde menta · "todo bien" --- */
+  --color-primary: #4edea3;
+  --color-on-primary: #003824;
+  --color-primary-container: #10b981;
+  --color-on-primary-container: #00422b;
+  --color-primary-fixed: #6ffbbe;
+  --color-primary-fixed-dim: #4edea3;
+  --color-on-primary-fixed: #002113;
+  --color-on-primary-fixed-variant: #005236;
+  --color-inverse-primary: #006c49;
+
+  /* --- Secondary · azulado · dato neutro --- */
+  --color-secondary: #bec6e0;
+  --color-on-secondary: #283044;
+  --color-secondary-container: #3f465c;
+  --color-on-secondary-container: #adb4ce;
+  --color-secondary-fixed: #dae2fd;
+  --color-secondary-fixed-dim: #bec6e0;
+  --color-on-secondary-fixed: #131b2e;
+  --color-on-secondary-fixed-variant: #3f465c;
+
+  /* --- Tertiary · ámbar · "ojo con esto" --- */
+  --color-tertiary: #ffb95f;
+  --color-on-tertiary: #472a00;
+  --color-tertiary-container: #e29100;
+  --color-on-tertiary-container: #523200;
+  --color-tertiary-fixed: #ffddb8;
+  --color-tertiary-fixed-dim: #ffb95f;
+  --color-on-tertiary-fixed: #2a1700;
+  --color-on-tertiary-fixed-variant: #653e00;
+
+  /* --- Error · rojo · excedido --- */
+  --color-error: #ffb4ab;
+  --color-on-error: #690005;
+  --color-error-container: #93000a;
+  --color-on-error-container: #ffdad6;
+
+  /* --- Bordes --- */
+  --color-outline: #86948a;
+  --color-outline-variant: #3c4a42;
+
+  /* --- Espaciado --- */
+  --spacing-space-xs: 0.25rem;
+  --spacing-space-sm: 0.5rem;
+  --spacing-space-md: 1rem;
+  --spacing-space-lg: 1.5rem;
+  --spacing-space-xl: 2rem;
+  --spacing-margin: 1.5rem;
+  --spacing-margin-mobile: 1rem;
+  --spacing-gutter: 1rem;
+  --spacing-gutter-mobile: 0.75rem;
+
+  /* --- Radios --- (cards xl = 12px, chips/botones lg = 8px) */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+  --radius-2xl: 1rem;
+  --radius-3xl: 1.5rem;
+
+  /* --- Tipografía --- */
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+
+  --text-display-currency: 44px;
+  --text-display-currency--line-height: 52px;
+  --text-display-currency--letter-spacing: -0.04em;
+  --text-display-currency--font-weight: 700;
+
+  --text-display-currency-mobile: 36px;
+  --text-display-currency-mobile--line-height: 44px;
+  --text-display-currency-mobile--letter-spacing: -0.035em;
+  --text-display-currency-mobile--font-weight: 700;
+
+  --text-headline-lg: 30px;
+  --text-headline-lg--line-height: 38px;
+  --text-headline-lg--letter-spacing: -0.025em;
+  --text-headline-lg--font-weight: 600;
+
+  --text-headline-lg-mobile: 24px;
+  --text-headline-lg-mobile--line-height: 32px;
+  --text-headline-lg-mobile--letter-spacing: -0.02em;
+  --text-headline-lg-mobile--font-weight: 600;
+
+  --text-headline-md: 20px;
+  --text-headline-md--line-height: 28px;
+  --text-headline-md--letter-spacing: -0.015em;
+  --text-headline-md--font-weight: 600;
+
+  --text-headline-sm: 16px;
+  --text-headline-sm--line-height: 24px;
+  --text-headline-sm--letter-spacing: -0.01em;
+  --text-headline-sm--font-weight: 600;
+
+  --text-keypad-digits: 28px;
+  --text-keypad-digits--line-height: 32px;
+  --text-keypad-digits--letter-spacing: -0.01em;
+  --text-keypad-digits--font-weight: 500;
+
+  --text-body-lg: 16px;
+  --text-body-lg--line-height: 24px;
+  --text-body-lg--letter-spacing: -0.005em;
+  --text-body-lg--font-weight: 400;
+
+  --text-body-md: 14px;
+  --text-body-md--line-height: 20px;
+  --text-body-md--letter-spacing: 0em;
+  --text-body-md--font-weight: 400;
+
+  --text-body-sm: 12px;
+  --text-body-sm--line-height: 16px;
+  --text-body-sm--letter-spacing: 0.01em;
+  --text-body-sm--font-weight: 400;
+
+  --text-label-numeric: 15px;
+  --text-label-numeric--line-height: 20px;
+  --text-label-numeric--letter-spacing: 0em;
+  --text-label-numeric--font-weight: 500;
+
+  --text-label-caps: 11px;
+  --text-label-caps--line-height: 16px;
+  --text-label-caps--letter-spacing: 0.06em;
+  --text-label-caps--font-weight: 600;
 }
 
+/* ---------------------------------------------------------------------------
+   Puente a shadcn/ui (Opción A del CLAUDE.md: la paleta nuestra manda).
+   Los componentes de shadcn leen estas variables; apuntarlas a nuestros tokens
+   hace que un botón de shadcn y una BarraTope propia usen el mismo verde.
+
+   Los valores van en hex literal y no en `var(--color-*)` a propósito: el
+   bloque `@theme inline` de abajo define `--color-x: var(--x)`, así que
+   referenciarlos acá armaría un ciclo que el navegador no puede resolver.
+
+   No hay tema claro, así que :root y .dark son lo mismo.
+   --------------------------------------------------------------------------- */
+:root,
+.dark {
+  --background: #0f131c; /* surface */
+  --foreground: #dfe2ef; /* on-surface */
+  --card: #1c1f29; /* surface-container */
+  --card-foreground: #dfe2ef; /* on-surface */
+  --popover: #262a34; /* surface-container-high */
+  --popover-foreground: #dfe2ef; /* on-surface */
+  --primary: #4edea3; /* primary */
+  --primary-foreground: #003824; /* on-primary */
+  --secondary: #3f465c; /* secondary-container */
+  --secondary-foreground: #adb4ce; /* on-secondary-container */
+  --muted: #262a34; /* surface-container-high */
+  --muted-foreground: #bbcabf; /* on-surface-variant */
+  --accent: #e29100; /* tertiary-container */
+  --accent-foreground: #523200; /* on-tertiary-container */
+  --destructive: #93000a; /* error-container */
+  --destructive-foreground: #ffdad6; /* on-error-container */
+  --border: #3c4a42; /* outline-variant */
+  --input: #3c4a42; /* outline-variant */
+  --ring: #4edea3; /* primary */
+  --radius: 0.75rem;
+
+  /* Sidebar: shadcn lo pide aunque no lo usemos. */
+  --sidebar: #1c1f29;
+  --sidebar-foreground: #dfe2ef;
+  --sidebar-primary: #4edea3;
+  --sidebar-primary-foreground: #003824;
+  --sidebar-accent: #262a34;
+  --sidebar-accent-foreground: #dfe2ef;
+  --sidebar-border: #3c4a42;
+  --sidebar-ring: #4edea3;
+}
+
+/* Las utilidades que usan los componentes de shadcn (`bg-card`,
+   `text-muted-foreground`, `border-border`...).
+
+   Ojo con `--color-secondary`: acá vale #3f465c (secondary-container), que es
+   lo que pide la tabla del CLAUDE.md para que el botón secundario de shadcn
+   tenga contraste. El `secondary` suelto de la paleta (#bec6e0) no se usa en
+   el design system, que siempre habla de `secondary-container`. */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
   --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-sans);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* ---------------------------------------------------------------------------
+   Safe areas del celular (notch e indicador de gesto).
+   Necesitan `viewportFit: 'cover'` en el viewport, que está en app/layout.tsx.
+   --------------------------------------------------------------------------- */
+@utility pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+@utility mb-safe {
+  margin-bottom: env(safe-area-inset-bottom);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
   }
-}
+  html {
+    @apply font-sans;
+    /* La app es dark siempre: que los controles nativos (scrollbar, inputs,
+       date picker) también lo sepan. */
+    color-scheme: dark;
+  }
+  body {
+    @apply bg-surface text-on-surface;
+  }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  /* Material Symbols Outlined — ver components/Icono.tsx */
+  .material-symbols-outlined {
+    font-variation-settings:
+      'FILL' 0,
+      'wght' 400,
+      'GRAD' 0,
+      'opsz' 24;
+    font-size: inherit;
+    line-height: 1;
+    user-select: none;
+  }
 }

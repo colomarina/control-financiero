@@ -1,0 +1,62 @@
+import { createServerClient } from '@supabase/ssr'
+import { NextResponse, type NextRequest } from 'next/server'
+
+/**
+ * Corre antes de cada request: refresca la sesión de Supabase y manda al login
+ * a quien no la tenga.
+ *
+ * (En Next 16 esto se llama `proxy`; era `middleware` hasta la 15.)
+ */
+export async function proxy(request: NextRequest) {
+  let response = NextResponse.next({ request })
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll()
+        },
+        setAll(cookiesToSet) {
+          for (const { name, value } of cookiesToSet) {
+            request.cookies.set(name, value)
+          }
+          response = NextResponse.next({ request })
+          for (const { name, value, options } of cookiesToSet) {
+            response.cookies.set(name, value, options)
+          }
+        },
+      },
+    },
+  )
+
+  // getUser() valida el token contra el servidor de auth. No usar getSession()
+  // acá: solo lee la cookie, que el cliente podría haber falsificado.
+  const { data: { user } } = await supabase.auth.getUser()
+
+  const esLogin = request.nextUrl.pathname.startsWith('/login')
+
+  if (!user && !esLogin) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/login'
+    return NextResponse.redirect(url)
+  }
+
+  if (user && esLogin) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/'
+    return NextResponse.redirect(url)
+  }
+
+  return response
+}
+
+export const config = {
+  matcher: [
+    /*
+     * Todo menos los estáticos y las imágenes.
+     */
+    '/((?!_next/static|_next/image|favicon.ico|.*\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+  ],
+}
