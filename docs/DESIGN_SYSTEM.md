@@ -142,6 +142,29 @@ sobre la bottom-nav, con sombra de acento.
 `bg-surface-container-low p-space-sm rounded-lg` con ícono `primary` a la izquierda
 y texto `body-sm on-surface-variant`. Para explicaciones (ej: "detección automática activa").
 
+### Selector (`CampoSelect`)
+**No se usa `<select>` nativo.** El menú lo dibuja el sistema operativo y no hay forma de
+vestirlo: en el escritorio sale con fondo claro y el highlight azul de Windows. Es el mismo
+motivo por el que se reemplazó el `<input type="date">`, así que usa el mismo patrón que
+`CampoFecha`: trigger con la clase `campo` + `Popover` + contenido nuestro.
+
+- **Trigger**, variante `campo`: valor a la izquierda, `expand_more` a la derecha, idéntico
+  al de la fecha. Variante `filtro`: ícono + nombre a la izquierda, valor a la derecha, y
+  **con el filtro puesto la fila se tiñe** (`border-primary/50 bg-primary/10`, texto
+  `primary`), que es lo que deja ver de un vistazo qué está filtrando.
+- **Menú**: `bg-popover` (= `surface-container-high`), `w-[var(--radix-popover-trigger-width)]`
+  para calcar el ancho del trigger, `align="start" side="bottom"` para que abra **abajo**, y
+  `max-h-[min(18rem,var(--radix-popover-content-available-height))]` con scroll propio.
+  El `collisionPadding` lleva más margen abajo que arriba: la bottom-nav es fija.
+- **Opciones**: `role="option"`, `min-h-11` para el pulgar, check verde en la elegida y
+  `hover:bg-surface-container-highest`. La opción de "sin filtrar" va primera y separada.
+- Dentro de un `<form>`, `name` renderiza un input oculto — el `FormData` no cambia.
+
+Dos caminos que ya se probaron con el nativo y **no hay que volver a tomar**: envolverlo en
+un `<label>` para agrandar el área táctil (tocar una etiqueta *enfoca* el select pero no
+abre el desplegable) y taparlo con una copia decorativa en `opacity-0` (el menú **hereda la
+opacidad** y abre encima en vez de abajo).
+
 ### Navegación
 - **Header** fijo arriba (`fixed top-0`), con `backdrop-blur`, logo + título de pantalla
   + selector de período (mes) + avatar.

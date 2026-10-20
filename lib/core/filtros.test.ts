@@ -1,6 +1,14 @@
 import { describe, it, expect } from 'vitest'
 import type { MovimientoDetalle } from '@/lib/schemas/movimiento'
-import { filtrarMovimientos, normalizar, categoriasDe, totalDe } from './filtros'
+import {
+  filtrarMovimientos,
+  normalizar,
+  categoriasDe,
+  totalDe,
+  criteriosDe,
+  hayFiltro,
+  SIN_FILTROS,
+} from './filtros'
 
 let n = 0
 function mov(p: Partial<MovimientoDetalle> = {}): MovimientoDetalle {
@@ -169,5 +177,48 @@ describe('totalDe', () => {
 
   it('lista vacía suma cero', () => {
     expect(totalDe([])).toBe(0)
+  })
+})
+
+describe('mes', () => {
+  it('se queda con los de ese mes, sin tener que armar el rango a mano', () => {
+    expect(filtrarMovimientos(MOVS, { mes: '2026-09' }).map((m) => m.comercio))
+      .toEqual(['Coto', 'Shell'])
+    expect(filtrarMovimientos(MOVS, { mes: '2026-10' }).map((m) => m.comercio))
+      .toEqual(['Farmacia'])
+  })
+
+  it('un mes sin movimientos no devuelve nada', () => {
+    expect(filtrarMovimientos(MOVS, { mes: '2025-01' })).toEqual([])
+  })
+
+  it('se combina con el resto de los criterios', () => {
+    expect(filtrarMovimientos(MOVS, { mes: '2026-09', formaPago: 'efectivo' }))
+      .toHaveLength(1)
+  })
+})
+
+describe('criteriosDe', () => {
+  it('los campos vacíos de la pantalla no filtran nada', () => {
+    expect(filtrarMovimientos(MOVS, criteriosDe(SIN_FILTROS))).toHaveLength(4)
+  })
+
+  it('traduce lo que puso el usuario', () => {
+    expect(criteriosDe({ texto: 'coto', categoria: 'Salud', formaPago: 'efectivo', mes: '2026-09' }))
+      .toEqual({ texto: 'coto', categoria: 'Salud', formaPago: 'efectivo', mes: '2026-09' })
+  })
+})
+
+describe('hayFiltro', () => {
+  it('sin nada puesto es false', () => {
+    expect(hayFiltro(SIN_FILTROS)).toBe(false)
+    expect(hayFiltro({ ...SIN_FILTROS, texto: '   ' })).toBe(false)
+  })
+
+  it('con cualquier campo puesto es true', () => {
+    expect(hayFiltro({ ...SIN_FILTROS, texto: 'coto' })).toBe(true)
+    expect(hayFiltro({ ...SIN_FILTROS, categoria: 'Salud' })).toBe(true)
+    expect(hayFiltro({ ...SIN_FILTROS, formaPago: 'efectivo' })).toBe(true)
+    expect(hayFiltro({ ...SIN_FILTROS, mes: '2026-09' })).toBe(true)
   })
 })

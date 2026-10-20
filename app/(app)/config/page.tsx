@@ -5,7 +5,7 @@ import { FormConfig } from '@/components/FormConfig'
 import { FormPassword } from '@/components/FormPassword'
 import { CatalogoComercios } from '@/components/CatalogoComercios'
 import { AltaComercio } from '@/components/AltaComercio'
-import { Seccion } from '@/components/ds'
+import { Seccion } from '@/components/Seccion'
 
 /**
  * Configuración, en secciones plegables.

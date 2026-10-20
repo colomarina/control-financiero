@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { cerrarSesion } from '@/app/actions/auth'
 import { NavMobile } from '@/components/NavMobile'
+import { LinkConEstado } from '@/components/LinkConEstado'
 import { Icono } from '@/components/Icono'
 
 /**
@@ -23,13 +24,16 @@ export default function AppLayout({ children }: LayoutProps<'/'>) {
           </Link>
 
           <div className="gap-space-xs ml-auto flex shrink-0 items-center">
-            <Link
+            <LinkConEstado
               href="/historial"
               aria-label="Historial"
               className="text-on-surface-variant hover:text-on-surface grid size-9 place-items-center rounded-full"
+              pendiente={
+                <Icono nombre="progress_activity" className="text-primary animate-spin text-[20px]" />
+              }
             >
               <Icono nombre="trending_up" className="text-[20px]" />
-            </Link>
+            </LinkConEstado>
 
             <form action={cerrarSesion}>
               <button
@@ -49,14 +53,18 @@ export default function AppLayout({ children }: LayoutProps<'/'>) {
         {children}
       </main>
 
-      {/* FAB: la acción principal de la app, al alcance del pulgar. */}
-      <Link
+      {/* FAB: la acción principal de la app, al alcance del pulgar.
+          Es el único link de la pantalla que no tiene a dónde teñirse —ya es
+          verde— así que el aviso de "voy en camino" es cambiar el + por un
+          spinner. */}
+      <LinkConEstado
         href="/cargar"
         aria-label="Cargar gasto"
         className="bg-primary-container text-on-primary mb-safe fixed bottom-3 left-1/2 z-50 grid size-14 -translate-x-1/2 place-items-center rounded-full shadow-[0_6px_20px_rgba(16,185,129,0.45)] transition-transform active:scale-95"
+        pendiente={<Icono nombre="progress_activity" className="animate-spin text-[28px]" />}
       >
         <Icono nombre="add" className="text-[28px]" />
-      </Link>
+      </LinkConEstado>
 
       <NavMobile />
     </div>

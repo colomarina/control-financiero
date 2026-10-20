@@ -1,10 +1,11 @@
 'use client'
 
-import { useRef, useTransition } from 'react'
+import { useRef, useState, useTransition } from 'react'
 import { toast } from 'sonner'
 import { guardarLineaPlan } from '@/app/actions/presupuesto'
 import type { Comercio } from '@/lib/schemas/comercio'
 import { Card, campo, botonPrimario, etiqueta } from '@/components/ds'
+import { CampoSelect } from '@/components/CampoSelect'
 import { Icono } from '@/components/Icono'
 
 /** Sumar un comercio al plan del mes que estás mirando. */
@@ -12,12 +13,17 @@ export function AltaLineaPlan({ comercios, mes }: { comercios: Comercio[]; mes: 
   const [pendiente, startTransition] = useTransition()
   const formRef = useRef<HTMLFormElement>(null)
 
+  // Controlado: `form.reset()` no limpia un componente nuestro, y el comercio
+  // elegido es lo que habilita el botón de Agregar.
+  const [comercioId, setComercioId] = useState('')
+
   function enviar(formData: FormData) {
     startTransition(async () => {
       const r = await guardarLineaPlan(null, formData)
       if (r?.ok) {
         toast.success(r.mensaje)
         formRef.current?.reset()
+        setComercioId('')
       } else if (r) {
         toast.error(r.error)
       }
@@ -38,13 +44,15 @@ export function AltaLineaPlan({ comercios, mes }: { comercios: Comercio[]; mes: 
           <input type="hidden" name="mes" value={mes} />
 
           <div className="gap-space-xs flex flex-col">
-            <label htmlFor="comercioId" className={etiqueta}>Comercio</label>
-            <select id="comercioId" name="comercioId" required className={campo}>
-              <option value="">Elegí uno</option>
-              {comercios.map((c) => (
-                <option key={c.id} value={c.id}>{c.nombre}</option>
-              ))}
-            </select>
+            <span className={etiqueta}>Comercio</span>
+            <CampoSelect
+              name="comercioId"
+              titulo="Comercio"
+              placeholder="Elegí uno"
+              valor={comercioId}
+              onCambio={setComercioId}
+              opciones={comercios.map((c) => ({ valor: c.id, etiqueta: c.nombre }))}
+            />
           </div>
 
           <div className="gap-space-xs flex flex-col">
@@ -59,7 +67,13 @@ export function AltaLineaPlan({ comercios, mes }: { comercios: Comercio[]; mes: 
             />
           </div>
 
-          <button type="submit" disabled={pendiente} className={botonPrimario}>
+          {/* Sin `<select required>` el navegador ya no frena el submit: lo
+              frena el botón, y la action igual valida con Zod. */}
+          <button
+            type="submit"
+            disabled={pendiente || comercioId === ''}
+            className={botonPrimario}
+          >
             {pendiente ? 'Guardando…' : 'Agregar'}
           </button>
         </form>

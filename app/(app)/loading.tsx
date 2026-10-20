@@ -31,7 +31,10 @@ export default function CargandoHome() {
       </Card>
 
       <div className="gap-space-sm flex flex-col">
-        <Esqueleto className="h-6 w-40" />
+        <div className="px-space-xs flex items-center justify-between">
+          <Esqueleto className="h-6 w-40" />
+          <Esqueleto className="size-9 rounded-full" />
+        </div>
         <Card className="p-space-sm gap-space-md">
           {[0, 1, 2].map((i) => (
             <div key={i} className="gap-space-sm flex items-center">

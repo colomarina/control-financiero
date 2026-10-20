@@ -1,4 +1,3 @@
-import Link from 'next/link'
 import { getMovimientosDesde } from '@/lib/db/movimientos'
 import { getGastosFijos } from '@/lib/db/gastosFijos'
 import { getConfig } from '@/lib/db/config'
@@ -15,7 +14,7 @@ import {
 } from '@/lib/core/prediccion'
 import { formatoARS } from '@/lib/core/dinero'
 import { BarraTope } from '@/components/BarraTope'
-import { ListaMovimientos } from '@/components/ListaMovimientos'
+import { MovimientosMes } from '@/components/MovimientosMes'
 import { Card, TituloCard, MontoHero, Badge, Banner } from '@/components/ds'
 
 export default async function HomePage() {
@@ -115,27 +114,7 @@ export default async function HomePage() {
         )}
       </Card>
 
-      <section className="gap-space-sm flex flex-col">
-        <div className="px-space-xs flex items-baseline justify-between">
-          <h2 className="text-headline-md text-on-surface">Movimientos</h2>
-          <span className="text-body-sm text-on-surface-variant tabular-nums">
-            {delMes.length}
-          </span>
-        </div>
-
-        {delMes.length === 0 ? (
-          <Card>
-            <p className="text-body-md text-on-surface-variant text-center">
-              Todavía no cargaste nada este mes.{' '}
-              <Link href="/cargar" className="text-primary underline underline-offset-4">
-                Cargar un gasto
-              </Link>
-            </p>
-          </Card>
-        ) : (
-          <ListaMovimientos movimientos={delMes} />
-        )}
-      </section>
+      <MovimientosMes movimientos={delMes} />
     </div>
   )
 }

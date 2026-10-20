@@ -12,6 +12,7 @@ import {
 import { formatoARS, porcentaje } from '@/lib/core/dinero'
 import { GraficoEvolucion } from '@/components/GraficoEvolucion'
 import { BuscadorMovimientos } from '@/components/BuscadorMovimientos'
+import { Seccion } from '@/components/Seccion'
 import {
   Card,
   TituloCard,
@@ -23,6 +24,17 @@ import {
 } from '@/components/ds'
 import { cn } from '@/lib/utils'
 
+/**
+ * Historial, en secciones plegables — el mismo patrón que Configuración.
+ *
+ * Son cuatro bloques largos (el buscador con todo el histórico, el gráfico, la
+ * tabla mes a mes y el reparto por categoría) y apilados abiertos obligaban a
+ * scrollear cuatro pantallas. Plegados, la pantalla entra entera y cada cosa
+ * está a un tap, con el contador adelantando qué hay adentro.
+ *
+ * "Mes a mes" arranca abierta porque es la columna vertebral de la pantalla; el
+ * promedio queda afuera de toda sección porque es el número de portada.
+ */
 export default async function HistorialPage() {
   const mes = mesActual()
   const config = await getConfig()
@@ -52,7 +64,7 @@ export default async function HistorialPage() {
   }
 
   return (
-    <div className="gap-space-lg flex flex-col">
+    <div className="gap-space-md flex flex-col">
       <header>
         <h1 className="text-headline-lg-mobile text-on-surface">Historial</h1>
         <p className="text-body-sm text-on-surface-variant">
@@ -70,25 +82,26 @@ export default async function HistorialPage() {
         </Card>
       )}
 
-      <section className="gap-space-sm flex flex-col">
-        <h2 className="text-headline-md text-on-surface px-space-xs">Buscar</h2>
+      <Seccion titulo="Buscar" contador={`${movs.length} movimientos`}>
         {/* `mesesConDatos` los da del más viejo al más nuevo; en un selector se
             busca primero el mes reciente. */}
         <BuscadorMovimientos movimientos={movs} meses={[...mesesConDatos(movs)].reverse()} />
-      </section>
+      </Seccion>
 
-      <section className="gap-space-sm flex flex-col">
-        <h2 className="text-headline-md text-on-surface px-space-xs">Evolución</h2>
-        <Card>
+      {/* Con un solo mes no hay evolución que dibujar. */}
+      {filas.length >= 2 && (
+        <Seccion titulo="Evolución" montarAlAbrir>
           <GraficoEvolucion datos={serieEvolucion(filas)} />
-        </Card>
-      </section>
+        </Seccion>
+      )}
 
-      <section className="gap-space-sm flex flex-col">
-        <h2 className="text-headline-md text-on-surface px-space-xs">Mes a mes</h2>
-        <Card className="p-space-sm gap-0">
-          <ul>
-            {filas.map((f, i) => {
+      <Seccion
+        titulo="Mes a mes"
+        contador={`${filas.length} ${filas.length === 1 ? 'mes' : 'meses'}`}
+        abierta
+      >
+        <ul>
+          {filas.map((f, i) => {
               const variacion = variacionContraMesAnterior(filas, f.mes)
               return (
                 <li key={f.mes}>
@@ -132,34 +145,30 @@ export default async function HistorialPage() {
                 </li>
               )
             })}
-          </ul>
-        </Card>
-        <p className="text-body-sm text-on-surface-variant px-space-xs">
+        </ul>
+        <p className="text-body-sm text-on-surface-variant">
           La variación del mes en curso lo compara incompleto contra un mes entero.
         </p>
-      </section>
+      </Seccion>
 
-      <section className="gap-space-sm flex flex-col">
-        <h2 className="text-headline-md text-on-surface px-space-xs">En qué se va</h2>
-        <Card className="gap-space-md">
-          {[...categorias].slice(0, 10).map(([categoria, centavos]) => (
-            <div key={categoria} className="gap-space-xs flex flex-col">
-              <div className="gap-space-sm flex items-baseline justify-between">
-                <span className="text-body-md text-on-surface truncate">{categoria}</span>
-                <Monto className="shrink-0">{formatoARS(centavos)}</Monto>
-              </div>
-              <Barra
-                porcentaje={porcentaje(centavos, totalCategorias)}
-                tono="ok"
-                etiqueta={`${categoria}: ${Math.round(porcentaje(centavos, totalCategorias))}% del total`}
-              />
+      <Seccion titulo="En qué se va" contador={`${categorias.size} categorías`}>
+        {[...categorias].slice(0, 10).map(([categoria, centavos]) => (
+          <div key={categoria} className="gap-space-xs flex flex-col">
+            <div className="gap-space-sm flex items-baseline justify-between">
+              <span className="text-body-md text-on-surface truncate">{categoria}</span>
+              <Monto className="shrink-0">{formatoARS(centavos)}</Monto>
             </div>
-          ))}
-        </Card>
-        <p className="text-body-sm text-on-surface-variant px-space-xs">
+            <Barra
+              porcentaje={porcentaje(centavos, totalCategorias)}
+              tono="ok"
+              etiqueta={`${categoria}: ${Math.round(porcentaje(centavos, totalCategorias))}% del total`}
+            />
+          </div>
+        ))}
+        <p className="text-body-sm text-on-surface-variant">
           Acumulado de todos los meses cargados.
         </p>
-      </section>
+      </Seccion>
     </div>
   )
 }

@@ -5,7 +5,8 @@ import { toast } from 'sonner'
 import { guardarParametros } from '@/app/actions/config'
 import type { Config } from '@/lib/db/config'
 import { aPesos } from '@/lib/core/dinero'
-import { Seccion, campo, botonPrimario, etiqueta } from '@/components/ds'
+import { campo, botonPrimario, etiqueta } from '@/components/ds'
+import { Seccion } from '@/components/Seccion'
 
 /** Un campo con su ayuda debajo. */
 function Campo({

@@ -56,7 +56,10 @@ export function ListaMovimientos({ movimientos }: { movimientos: MovimientoDetal
                 {/* Tocar un movimiento lo abre para editar o borrar. */}
                 <Link
                   href={`/movimiento/${m.id}`}
-                  className="hover:bg-surface-container-high block rounded-lg transition-colors"
+                  // `active:` y no solo `hover:`: en el celular no hay hover, y
+                  // el destello al tocar es lo único que confirma el toque
+                  // antes de que aparezca el esqueleto de la otra pantalla.
+                  className="hover:bg-surface-container-high active:bg-surface-container-highest block rounded-lg transition-colors"
                 >
                   <ItemLista
                     icono={iconoDe(m.categoria)}
