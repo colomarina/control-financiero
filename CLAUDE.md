@@ -171,9 +171,17 @@ del mes es cosa del Home.
 Tampoco se separa ahorro de gasto: una línea de inversión es, a efectos del plan, plata que
 sale. Así la usaba el Excel y así se decidió dejarla.
 
-**Gastos fijos**: no hay tilde manual. Un fijo está pagado si su comercio aparece
-en los movimientos del mes (`lib/core/fijos.ts`). El hecho es el movimiento; el
-estado se deriva. Hay un estado `parcial` que el Excel no distinguía.
+**Gastos fijos**: no hay tilde manual. Un fijo está pagado cuando en el mes
+aparecen todas las facturas que espera (`pagos_esperados`: una, salvo Personal
+Flow que son dos, una línea por persona). El hecho es el movimiento; el estado se
+deriva (`lib/core/fijos.ts`).
+
+**Se cuentan facturas, no plata.** El monto lo pone el proveedor y cambia todos
+los meses, así que comparar pagado contra estimado inventaba un "falta $5.000"
+cada vez que la luz salía más barata de lo previsto. El estimado sigue valiendo
+para la predicción —`falta` lo prorratea por las facturas pendientes— y el desvío
+contra lo esperado se muestra como dato (`desvioPct`), no como deuda. Hay un
+estado `parcial` que el Excel no distinguía: llegó alguna factura, no todas.
 
 **Predicción — método B+E** (`lib/core/prediccion.ts`):
 
@@ -203,9 +211,35 @@ manda el gasto al día siguiente.
   arriba) está en el mismo archivo, con los hex literales para no armar un ciclo de
   variables CSS.
 - **Las piezas del design system viven en `components/ds.tsx`**: `Card`, `TituloCard`,
-  `MontoHero`, `Badge`, `Barra`, `ItemLista`, `Separador`, `Banner`, `Monto`, y las
-  clases `campo`, `botonPrimario`, `botonSecundario`, `etiqueta`. Usarlas antes de
-  repetir clases sueltas. El semáforo tiene un solo mapa: el tipo `Semaforo`.
+  `MontoHero`, `Badge`, `Barra`, `ItemLista`, `Separador`, `Banner`, `Monto`,
+  `Esqueleto`/`Cargando`, y las clases `campo`,
+  `botonPrimario`, `botonSecundario`, `etiqueta`. Usarlas antes de repetir clases
+  sueltas. El semáforo tiene un solo mapa: el tipo `Semaforo`.
+  - `Seccion` (la card plegable) vive aparte, en `components/Seccion.tsx`, porque es
+    el único pedazo del design system que necesita estado: con `montarAlAbrir` no
+    dibuja el contenido hasta que se abre. Los hijos los sigue renderizando el server.
+- **Esperar tiene dos capas, y las dos tienen que estar.** Cada ruta trae su
+  `loading.tsx` con el esqueleto de *esa* pantalla (no uno genérico: la gracia es
+  reservar la forma final para que al llegar los datos nada salte). Pero el esqueleto
+  aparece recién cuando arranca la navegación, y entre el tap y ese momento no pasa
+  nada: en el celular eso se lee como "no me registró el toque".
+  - Por eso todo destino se acusa en el acto. La bottom-nav tiñe el tab tocado
+    (`useLinkStatus` en `NavMobile`), y el FAB y el link a Historial cambian su ícono
+    por un spinner (`LinkConEstado`). `useLinkStatus` **solo funciona adentro de un
+    `<Link>`**, así que el contenido siempre va en un componente aparte.
+  - Las filas que navegan llevan `active:` además de `hover:`: en el celular no hay
+    hover y el destello al tocar es el único acuse antes del esqueleto.
+- **Config e Historial son secciones plegables** (`Seccion`). Son las dos pantallas
+  de bloques largos: abiertos obligan a scrollear tres o cuatro pantallas, plegados
+  entran de una y el contador del encabezado adelanta qué hay adentro. En cada una
+  arranca abierta la sección que más se usa (Catálogo y Mes a mes).
+  - Lo que va adentro **no lleva `Card` propia**: la `Seccion` ya pone el fondo
+    `surface-container`. Un sub-bloque que necesite despegarse usa
+    `surface-container-high` (ver `AltaComercio`, o `FiltrosMovimientos` con
+    `destacada`).
+  - El gráfico de Recharts va con `montarAlAbrir`: dentro de un `<details>` cerrado
+    el contenedor mide 0×0 y `ResponsiveContainer` nace sin tamaño. **No usarlo en
+    el buscador**: al cerrarse se desmonta y se perderían los filtros puestos.
 - **Íconos**: `components/Icono.tsx` (Material Symbols Outlined). La fuente se carga
   por stylesheet en `app/layout.tsx` porque no está en `next/font/google`.
 - **shadcn**: solo queda `components/ui/sonner.tsx` (los toasts). Los campos y botones
@@ -265,11 +299,43 @@ plan Free de Supabase no hace backups automáticos.
     día para atrás en Buenos Aires. Hay un test que deja el bug documentado.
   - Al ser un campo controlado, `form.reset()` no lo vuelve a hoy: `FormGasto` lo remonta con
     una `key` después de guardar.
-- **Búsqueda y filtros** en Historial: `lib/core/filtros.ts` (puro, con test) + el client
-  component `BuscadorMovimientos`. Filtra **en el cliente** porque la pantalla ya trae todo
-  el histórico para los agregados; si algún día son miles de filas, el filtrado se baja a
-  `lib/db/movimientos.ts` sin tocar la lógica. El texto se parte en palabras y todas tienen
-  que aparecer, aunque sea en campos distintos.
+- **Búsqueda y filtros** en Historial y en el Home: `lib/core/filtros.ts` (puro, con test)
+  + el client component `FiltrosMovimientos`, que es **uno solo** para las dos pantallas.
+  El Home mira un mes y el Historial todo el histórico, así que la única diferencia es el
+  selector de mes: va solo si le pasás `meses`. No duplicar los controles — si se separan,
+  buscar significa dos cosas distintas según la pantalla.
+  - El estado de los filtros es el tipo `Filtros` (todo string, `''` = sin filtrar) y lo
+    traduce `criteriosDe`. Así un `<select>` controlado no tiene que inventar `null`s.
+  - Filtra **en el cliente** porque las dos pantallas ya traen los movimientos para sus
+    agregados; si algún día son miles de filas, el filtrado se baja a
+    `lib/db/movimientos.ts` sin tocar la lógica. El texto se parte en palabras y todas
+    tienen que aparecer, aunque sea en campos distintos.
+  - En el Home el bloque arranca plegado: lo abre la lupa del encabezado. Plegarlo con un
+    filtro puesto no lo esconde —el contador pasa a "12 de 48", aparece el total filtrado
+    y la lupa queda en verde—; un mes al que le faltan movimientos sin explicación sería
+    el bug.
+- **Checklist de fijos**: la fila entera es el `<summary>` de un `<details>`, con el lápiz
+  al final —después del badge de estado— como pista de que se abre. Adentro hay un `<form>`
+  normal que postea a la Server Action. El campo "Facturas por mes" es el que distingue a
+  Personal Flow, que llega en dos.
+- **Nada de `<select>` nativo: va `components/CampoSelect.tsx`.** El menú de un select lo
+  dibuja el sistema operativo y no se puede vestir —en el escritorio sale con fondo claro y
+  el highlight azul de Windows—, que es exactamente el motivo por el que `CampoFecha`
+  reemplazó al `<input type="date">`. Mismo patrón: trigger con `campo` + `Popover` +
+  contenido nuestro. Lo usan los tres filtros y los campos de comercio y facturas.
+  - Antes de volver al nativo: **ya se probó** envolverlo en un `<label>` (tocar la etiqueta
+    *enfoca* el select pero no abre el desplegable) y taparlo con una copia en `opacity-0`
+    (el menú **hereda la opacidad** y abre encima en vez de abajo). Está anotado en
+    `DESIGN_SYSTEM.md`.
+  - Las flechas, Home/End y el typeahead son lo que el nativo daba gratis: viven puros y con
+    test en `lib/core/selector.ts`. Repetir la misma tecla **cicla**, como el select del
+    sistema, y la búsqueda pasa por `normalizar`, así que "nutricion" encuentra "Nutrición".
+  - Con `name` manda un input oculto, así que el `FormData` de las actions no cambió. Dos
+    consecuencias: ese campo **necesita JS**, y `required` ya no frena el submit —lo frena
+    el botón deshabilitado, y la action igual valida con Zod—.
+  - Es controlado o no según le pases `valor`. Los formularios que hacen `form.reset()`
+    (`AltaFijo`, `AltaLineaPlan`) lo usan **controlado** y limpian el estado a mano:
+    `reset()` no toca un componente nuestro, y el comercio quedaba pegado del alta anterior.
 - **Atajos de comercio** en Cargar: `lib/core/frecuentes.ts` (puro, con test) ordena por usos
   y desempata por el más reciente. La pantalla pasa los movimientos de dos meses; si no hay
   ninguno, la grilla no se dibuja y queda el buscador de siempre.

@@ -7,6 +7,32 @@ Lo ya terminado (etapas 0–4, deploy, cambio de contraseña) está en el `CLAUD
 
 ---
 
+## 0. Correr la migración de `pagos_esperados` 🟡
+
+Una sola vez, en el SQL Editor de Supabase. El checklist de fijos ahora cuenta facturas,
+y la columna no existe en la base vieja:
+
+```sql
+alter table gastos_fijos
+  add column if not exists pagos_esperados smallint not null default 1;
+
+do $$ begin
+  alter table gastos_fijos
+    add constraint gastos_fijos_pagos_esperados_valido check (pagos_esperados between 1 and 12);
+exception when duplicate_object then null; end $$;
+```
+
+(También está en `supabase/schema.sql`, que se puede re-correr entero: es idempotente.)
+
+Después, en `/fijos`, abrir **Personal Flow** y ponerle **2 facturas por mes**. El resto
+queda en 1, que es el default. Hasta que la migración corra, la app no se rompe —
+`lib/db/gastosFijos.ts` lee `pagos_esperados ?? 1`— pero Personal Flow va a figurar pagado
+con una sola factura.
+
+**Criterio de listo**: Personal Flow con una sola factura cargada dice `Parcial · falta 1 factura`.
+
+---
+
 ## 1. Backup de la base 🔴
 
 **Por qué primero.** El plan Free de Supabase **no tiene backups automáticos ni

@@ -22,6 +22,12 @@ export default async function FijosPage() {
   const esperado = sumar(...filas.map((f) => f.estimado))
   const pagado = sumar(...filas.map((f) => f.pagado))
 
+  // La barra cuenta facturas y no plata, igual que el estado de cada fila:
+  // con todas las facturas adentro llega al 100% aunque hayan salido más
+  // baratas de lo esperado, que es justo cuando la card dice "Todo pago".
+  const facturasEsperadas = filas.reduce((a, f) => a + f.pagosEsperados, 0)
+  const facturasPagas = filas.reduce((a, f) => a + Math.min(f.pagosHechos, f.pagosEsperados), 0)
+
   // Los comercios que todavía no son un gasto fijo, para el alta.
   const yaFijos = new Set(fijos.map((f) => f.comercioId))
   const disponibles = comercios.filter((c) => !yaFijos.has(c.id))
@@ -47,12 +53,12 @@ export default async function FijosPage() {
           {formatoARS(pendiente)}
         </MontoHero>
         <Barra
-          porcentaje={porcentaje(pagado, esperado)}
+          porcentaje={porcentaje(facturasPagas, facturasEsperadas)}
           tono={todoPago ? 'ok' : 'atencion'}
-          etiqueta={`Gastos fijos: ${Math.round(porcentaje(pagado, esperado))}% pagado`}
+          etiqueta={`Gastos fijos: ${facturasPagas} de ${facturasEsperadas} facturas`}
         />
         <p className="text-body-sm text-on-surface-variant tabular-nums">
-          {formatoARS(pagado)} de {formatoARS(esperado)}
+          {formatoARS(pagado)} de {formatoARS(esperado)} esperados
           {' · '}
           {contador.pagados} {contador.pagados === 1 ? 'pagado' : 'pagados'}
           {contador.parciales > 0 && `, ${contador.parciales} a medias`}
@@ -72,8 +78,9 @@ export default async function FijosPage() {
         ) : (
           <>
             <Banner icono="auto_awesome">
-              No hay nada que tildar: un fijo figura como pagado cuando cargás un
-              movimiento de ese comercio en el mes.
+              No hay nada que tildar: un fijo queda pagado cuando cargás sus
+              facturas del mes. Se cuentan facturas, no plata — si la luz vino
+              más barata que lo esperado, igual está paga.
             </Banner>
             <Card className="p-space-sm gap-0">
               <ul>

@@ -109,6 +109,11 @@ create unique index if not exists presupuesto_user_mes_comercio_uq
 -- NO hay tabla de "pagado". Un fijo está pagado si su comercio aparece en los
 -- movimientos del mes, igual que en el Excel: el hecho es el movimiento.
 --
+-- `pagos_esperados` son las facturas que llegan por mes: casi siempre una,
+-- dos para Personal Flow (una línea por persona). El estado del checklist se
+-- cuenta en facturas y no en plata, porque el monto lo decide el proveedor:
+-- la luz a 85.000 cuando se esperaban 90.000 está PAGA, no a medias.
+--
 -- `vencimiento` es texto porque en el Excel hay valores como "Día 1 y 28".
 -- ----------------------------------------------------------------------------
 create table if not exists gastos_fijos (
@@ -116,11 +121,22 @@ create table if not exists gastos_fijos (
   user_id                   uuid not null default auth.uid() references auth.users(id) on delete cascade,
   comercio_id               uuid not null references comercios(id) on delete cascade,
   importe_estimado_centavos bigint not null default 0,
+  pagos_esperados           smallint not null default 1,
   vencimiento               text,
   activo                    boolean not null default true,
   created_at                timestamptz not null default now(),
   constraint gastos_fijos_estimado_no_negativo check (importe_estimado_centavos >= 0)
 );
+
+-- Si la tabla ya existía, el `create table if not exists` de arriba no la toca:
+-- la columna se suma acá. Los fijos viejos quedan en una factura por mes.
+alter table gastos_fijos
+  add column if not exists pagos_esperados smallint not null default 1;
+
+do $$ begin
+  alter table gastos_fijos
+    add constraint gastos_fijos_pagos_esperados_valido check (pagos_esperados between 1 and 12);
+exception when duplicate_object then null; end $$;
 
 create unique index if not exists gastos_fijos_user_comercio_uq
   on gastos_fijos (user_id, comercio_id);

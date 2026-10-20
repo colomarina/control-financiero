@@ -10,6 +10,17 @@ import type { Mes } from './fechas'
  * Igual que en el Excel: nada se tilda a mano. Un fijo está "pagado" si su
  * comercio aparece en los movimientos del mes. El hecho es el movimiento;
  * el tilde se deriva.
+ *
+ * **El estado se cuenta en facturas, no en plata.** La pregunta de un fijo es
+ * "¿ya llegó y lo pagué?", no "¿pagué exactamente lo estimado?": el monto lo
+ * decide el proveedor y el estimado es apenas una expectativa. Comparando
+ * plata contra plata, la luz a $85.000 cuando se esperaban $90.000 figuraba
+ * `parcial` con un "falta $5.000" que no existe. Por eso cada fijo declara
+ * `pagosEsperados` (cuántas facturas llegan por mes: Personal Flow son dos,
+ * una por línea) y el estado sale de cuántas se pagaron.
+ *
+ * El monto sigue importando para la predicción: `falta` estima lo que todavía
+ * va a salir este mes, prorrateando el estimado por las facturas pendientes.
  */
 
 export type EstadoFijo = 'pagado' | 'parcial' | 'pendiente'
@@ -19,21 +30,40 @@ export interface FilaFijo {
   gastoFijoId: string
   comercioId: string
   comercio: string
+  /** Lo que se espera pagar en el mes, sumando todas las facturas. */
   estimado: number
   /** Lo que efectivamente se cargó este mes para ese comercio. */
   pagado: number
-  /** Lo que falta para llegar al estimado. Nunca negativo. */
+  /** Cuántas facturas llegan por mes. Siempre 1 o más. */
+  pagosEsperados: number
+  /** Cuántos movimientos de ese comercio hay en el mes. */
+  pagosHechos: number
+  /**
+   * Lo que se estima que todavía va a salir: el estimado prorrateado por las
+   * facturas que faltan. Con todas las facturas pagas es 0, cueste lo que
+   * haya costado. Nunca negativo.
+   */
   falta: number
+  /**
+   * Cuánto se desvió lo pagado del estimado, en %. Solo tiene sentido con el
+   * fijo ya cerrado: es `null` si falta alguna factura o no hay estimado.
+   */
+  desvioPct: number | null
   estado: EstadoFijo
   vencimiento: string | null
+}
+
+/** Un fijo nunca espera menos de una factura. */
+function facturasDe(f: GastoFijoDetalle): number {
+  return Math.max(1, Math.trunc(f.pagosEsperados))
 }
 
 /**
  * El checklist del mes, en el orden en que vienen los fijos.
  *
- * `estado` es `parcial` cuando se pagó algo pero menos de lo estimado — el
- * Excel solo distinguía pagado/pendiente y marcaba "pagado" con que hubiera
- * un peso cargado, lo que escondía los pagos a medias.
+ * `estado` es `parcial` cuando llegó alguna factura pero no todas — el Excel
+ * solo distinguía pagado/pendiente y marcaba "pagado" con que hubiera un peso
+ * cargado, lo que escondía los pagos a medias.
  */
 export function checklistFijos(
   fijos: GastoFijoDetalle[],
@@ -45,14 +75,15 @@ export function checklistFijos(
   return fijos
     .filter((f) => f.activo)
     .map((f) => {
-      const pagado = sumar(
-        ...delMes
-          .filter((m) => m.comercioId === f.comercioId)
-          .map((m) => m.importeCentavos),
-      )
-      const falta = Math.max(0, f.estimadoCentavos - pagado)
+      const propios = delMes.filter((m) => m.comercioId === f.comercioId)
+      const pagado = sumar(...propios.map((m) => m.importeCentavos))
+
+      const pagosEsperados = facturasDe(f)
+      const pagosHechos = propios.length
+      const faltantes = Math.max(0, pagosEsperados - pagosHechos)
+
       const estado: EstadoFijo =
-        pagado <= 0 ? 'pendiente' : falta > 0 ? 'parcial' : 'pagado'
+        pagosHechos === 0 ? 'pendiente' : faltantes > 0 ? 'parcial' : 'pagado'
 
       return {
         gastoFijoId: f.id,
@@ -60,7 +91,13 @@ export function checklistFijos(
         comercio: f.comercio,
         estimado: f.estimadoCentavos,
         pagado,
-        falta,
+        pagosEsperados,
+        pagosHechos,
+        falta: Math.round((f.estimadoCentavos * faltantes) / pagosEsperados),
+        desvioPct:
+          estado === 'pagado' && f.estimadoCentavos > 0
+            ? ((pagado - f.estimadoCentavos) / f.estimadoCentavos) * 100
+            : null,
         estado,
         vencimiento: f.vencimiento,
       }

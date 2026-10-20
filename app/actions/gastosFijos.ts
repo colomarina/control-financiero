@@ -13,6 +13,11 @@ export type EstadoFijoForm =
 const schema = z.object({
   comercioId: z.uuid('Elegí un comercio'),
   estimadoCentavos: z.int().nonnegative('El monto no puede ser negativo'),
+  pagosEsperados: z.coerce
+    .number()
+    .int('Las facturas por mes son un número entero')
+    .min(1, 'Un fijo llega al menos en una factura')
+    .max(12, 'Como mucho una factura por mes'),
   vencimiento: z.string().trim().max(40).nullable(),
 })
 
@@ -30,6 +35,7 @@ export async function guardarFijo(
   const parsed = schema.safeParse({
     comercioId: formData.get('comercioId'),
     estimadoCentavos,
+    pagosEsperados: formData.get('pagosEsperados') ?? 1,
     vencimiento: vencimientoCrudo === '' ? null : vencimientoCrudo,
   })
 
@@ -51,9 +57,14 @@ export async function guardarFijo(
 /**
  * Igual que `guardarFijo` pero para un `<form action>` sin `useActionState`.
  * Lo usa la fila del checklist, que no muestra estado propio.
+ *
+ * Si falla, **tira**: sin estado propio donde mostrar el error, devolverlo sería
+ * tragárselo, y el usuario vería la fila volver intacta como si hubiera
+ * guardado. Que lo levante `app/(app)/error.tsx`.
  */
 export async function guardarFijoDirecto(formData: FormData): Promise<void> {
-  await guardarFijo(null, formData)
+  const r = await guardarFijo(null, formData)
+  if (r && !r.ok) throw new Error(r.error)
 }
 
 export async function darDeBaja(formData: FormData): Promise<void> {

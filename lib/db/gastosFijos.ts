@@ -14,6 +14,7 @@ type FilaFijo = {
   id: string
   comercio_id: string
   importe_estimado_centavos: number
+  pagos_esperados: number | null
   vencimiento: string | null
   activo: boolean
   comercios: { nombre: string } | null
@@ -23,7 +24,9 @@ export async function getGastosFijos(): Promise<GastoFijoDetalle[]> {
   const supabase = await crearCliente()
   const { data, error } = await supabase
     .from('gastos_fijos')
-    .select('id, comercio_id, importe_estimado_centavos, vencimiento, activo, comercios(nombre)')
+    .select(
+      'id, comercio_id, importe_estimado_centavos, pagos_esperados, vencimiento, activo, comercios(nombre)',
+    )
     .eq('activo', true)
 
   if (error) throw new Error(`No pude leer los gastos fijos: ${error.message}`)
@@ -33,6 +36,8 @@ export async function getGastosFijos(): Promise<GastoFijoDetalle[]> {
       id: f.id,
       comercioId: f.comercio_id,
       estimadoCentavos: Number(f.importe_estimado_centavos),
+      // Una base sin la columna todavía migrada no rompe el checklist.
+      pagosEsperados: Number(f.pagos_esperados ?? 1),
       vencimiento: f.vencimiento,
       activo: f.activo,
       comercio: f.comercios?.nombre ?? '(sin comercio)',
@@ -43,6 +48,7 @@ export async function getGastosFijos(): Promise<GastoFijoDetalle[]> {
 export async function guardarGastoFijo(g: {
   comercioId: string
   estimadoCentavos: number
+  pagosEsperados: number
   vencimiento: string | null
 }): Promise<void> {
   const supabase = await crearCliente()
@@ -54,6 +60,7 @@ export async function guardarGastoFijo(g: {
       user_id: user.user.id,
       comercio_id: g.comercioId,
       importe_estimado_centavos: g.estimadoCentavos,
+      pagos_esperados: g.pagosEsperados,
       vencimiento: g.vencimiento,
     },
     { onConflict: 'user_id,comercio_id' },
