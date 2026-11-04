@@ -43,3 +43,6 @@ next-env.d.ts
 
 # datos financieros reales: se regenera con `npm run migrar <xlsx>`
 supabase/seed.sql
+
+# Mockups del brainstorming (superpowers)
+.superpowers/
