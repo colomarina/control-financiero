@@ -33,15 +33,33 @@ con una sola factura.
 
 ---
 
-## 0.1 Correr la migración de `compras_cuotas` 🟡
+## 0.1 Correr la migración de `compras_cuotas` ✅
 
-Una sola vez, en el SQL Editor de Supabase. La tabla, sus índices y la vista
-`compras_cuotas_detalle` son nuevos y no existen en la base vieja: pegar
-`supabase/schema.sql` entero y ejecutarlo (es idempotente, se puede re-correr
-las veces que haga falta — ya tiene adentro la migración del punto 0).
+Hecha el 4/11/2026: la tabla, sus índices, su política de RLS y la vista
+`compras_cuotas_detalle` ya existen en la base. Queda anotado acá hasta que la
+rama `compras-en-cuotas` se mergee, porque la base ya tiene la tabla y el
+código que la usa todavía no está en `master`.
 
-**Criterio de listo**: insertar una compra de prueba desde el SQL Editor y que
-`getComprasEnCuotas()` (`lib/db/cuotas.ts`) la devuelva.
+---
+
+## 1. Actualizar Next.js por el aviso de seguridad 🟠
+
+`npm run build` corta la primera corrida con un `SecurityFatalError` de Next.js
+avisando de una vulnerabilidad conocida en la **16.4.0**, que es la versión que
+tiene el proyecto. En la segunda corrida compila igual, así que no frena el
+desarrollo — pero la app está deployada en Vercel y es pública.
+
+**Qué hacer.** `next upgrade --agent=security`, que es lo que sugiere el propio
+mensaje, y después correr la suite entera: el proyecto usa App Router, Server
+Actions y `proxy.ts` (el `middleware` renombrado de Next 16), que es donde un
+salto de versión suele doler.
+
+**Por qué no se hizo en el momento**: apareció en medio de la rama de cuotas, y
+mezclar un salto de framework con una feature a medio hacer convierte cualquier
+falla en una pregunta sin respuesta. Va sola, con la rama limpia.
+
+**Criterio de listo**: `npm run build` sin el aviso, `npm test` en verde, y la
+app levantando en local con el login, cargar un gasto y el Home andando.
 
 ---
 
