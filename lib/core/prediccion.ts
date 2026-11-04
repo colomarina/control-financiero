@@ -2,6 +2,7 @@ import type { MovimientoDetalle } from '@/lib/schemas/movimiento'
 import { diasDelMes, mesesAnteriores, type Mes } from './fechas'
 import { TOPE_DE_FORMA_PAGO, movimientosDelMes } from './gastos'
 import { sumar } from './dinero'
+import { esCuota } from './cuotas'
 
 /**
  * MÉTODO B+E — cierre estimado del mes.
@@ -13,9 +14,12 @@ import { sumar } from './dinero'
  *
  *   cierre = B + E × factor del escenario
  *
- * El ritmo variable sale de descontarle a lo gastado los fijos ya pagados:
- * los fijos no se repiten, así que proyectarlos como si fueran gasto diario
- * infla la estimación.
+ * El ritmo variable sale de descontarle a lo gastado los fijos ya pagados y
+ * las cuotas del mes: ni unos ni otras se repiten, así que proyectarlos como
+ * si fueran gasto diario infla la estimación. Una cuota en particular es
+ * plata grande y de una sola vez —una compra puntual, financiada— que no
+ * dice nada sobre cuánto gastás por día; dejarla en el ritmo variable
+ * convierte un pico de un día en un "todos los días gastás así".
  *
  * Diferencia con el Excel (a propósito): el Excel proyecta desde el día 1, y
  * con dos días de datos el ritmo diario es ruido puro. Acá, antes de
@@ -39,6 +43,15 @@ export type Escenario = keyof typeof FACTOR_ESCENARIO
  * (el Excel no lo hacía: restaba fijos pagados por transferencia del gasto de
  * tarjeta, y el ritmo salía bajo o negativo).
  *
+ * A pesar del nombre, lo que se le pasa en `fijosYaPagados` es "lo ya gastado
+ * que no es variable": fijos ya pagados MÁS cuotas del mes. Es la unión de
+ * esos dos conjuntos de movimientos, no la suma de dos listas que pueden
+ * superponerse — si un comercio es fijo y además tiene una compra en cuotas,
+ * sumar `fijosYaPagados(fijos, mezclados, ...)` (con la lista que ya incluye
+ * la cuota) más el total de cuotas la cuenta dos veces. Por eso `fijos.ts`
+ * tiene que recibir siempre movimientos reales, nunca la lista mezclada con
+ * cuotas.
+ *
  * Nunca devuelve negativo: si pagaste más fijos que gasto total, el ritmo es 0.
  */
 export function tasaVariableDiaria(args: {
@@ -57,6 +70,9 @@ export function tasaVariableDiaria(args: {
  * Sirve para el arranque del mes, cuando todavía no hay suficientes días para
  * que el ritmo propio signifique algo. Solo promedia los meses que tuvieron
  * movimientos: un mes vacío bajaría el promedio sin motivo.
+ *
+ * Igual que con el ritmo del mes en curso, las cuotas de esos meses viejos
+ * quedan afuera: son el mismo pico puntual de siempre, solo que ya pasado.
  */
 export function promedioHistoricoDiario(
   movs: MovimientoDetalle[],
@@ -70,7 +86,7 @@ export function promedioHistoricoDiario(
     if (delMes.length === 0) continue
     const variable = sumar(
       ...delMes
-        .filter((m) => !m.esFijo && TOPE_DE_FORMA_PAGO[m.formaPago] === tope)
+        .filter((m) => !m.esFijo && !esCuota(m) && TOPE_DE_FORMA_PAGO[m.formaPago] === tope)
         .map((m) => m.importeCentavos),
     )
     tasas.push(variable / diasDelMes(mes))
