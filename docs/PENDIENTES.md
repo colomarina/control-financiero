@@ -42,27 +42,6 @@ código que la usa todavía no está en `master`.
 
 ---
 
-## 1. Actualizar Next.js por el aviso de seguridad 🟠
-
-`npm run build` corta la primera corrida con un `SecurityFatalError` de Next.js
-avisando de una vulnerabilidad conocida en la **16.4.0**, que es la versión que
-tiene el proyecto. En la segunda corrida compila igual, así que no frena el
-desarrollo — pero la app está deployada en Vercel y es pública.
-
-**Qué hacer.** `next upgrade --agent=security`, que es lo que sugiere el propio
-mensaje, y después correr la suite entera: el proyecto usa App Router, Server
-Actions y `proxy.ts` (el `middleware` renombrado de Next 16), que es donde un
-salto de versión suele doler.
-
-**Por qué no se hizo en el momento**: apareció en medio de la rama de cuotas, y
-mezclar un salto de framework con una feature a medio hacer convierte cualquier
-falla en una pregunta sin respuesta. Va sola, con la rama limpia.
-
-**Criterio de listo**: `npm run build` sin el aviso, `npm test` en verde, y la
-app levantando en local con el login, cargar un gasto y el Home andando.
-
----
-
 ## 1. Backup de la base 🔴
 
 **Por qué primero.** El plan Free de Supabase **no tiene backups automáticos ni
@@ -80,6 +59,27 @@ versiona**).
 **Criterio de listo**: corrés un comando, te queda un archivo, y restaurarlo en una base
 vacía reconstruye todo.
 
+
+---
+
+## 2. Actualizar Next.js por el aviso de seguridad 🟠
+
+`npm run build` corta la primera corrida con un `SecurityFatalError` de Next.js
+avisando de una vulnerabilidad conocida en la **16.4.0**, que es la versión que
+tiene el proyecto. En la segunda corrida compila igual, así que no frena el
+desarrollo — pero la app está deployada en Vercel y es pública.
+
+**Qué hacer.** `next upgrade --agent=security`, que es lo que sugiere el propio
+mensaje, y después correr la suite entera: el proyecto usa App Router, Server
+Actions y `proxy.ts` (el `middleware` renombrado de Next 16), que es donde un
+salto de versión suele doler.
+
+**Por qué no se hizo en el momento**: apareció en medio de la rama de cuotas, y
+mezclar un salto de framework con una feature a medio hacer convierte cualquier
+falla en una pregunta sin respuesta. Va sola, con la rama limpia.
+
+**Criterio de listo**: `npm run build` sin el aviso, `npm test` en verde, y la
+app levantando en local con el login, cargar un gasto y el Home andando.
 
 ---
 

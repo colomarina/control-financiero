@@ -164,8 +164,15 @@ día. Entonces:
   > **Ojo con el doble descuento.** Es la **unión** de los dos conjuntos, no la suma de dos
   > números. Si `fijosYaPagados` recibiera la lista mezclada y además se le sumaran las cuotas
   > del mes, una cuota de un comercio marcado como fijo se restaría dos veces y la tasa se
-  > iría a cero. Por eso `fijos.ts` recibe solo movimientos reales (ver la tabla de arriba).
-  > Va con test: no rompe nada, solo baja la proyección en silencio.
+  > iría a cero. No rompe nada: baja la proyección en silencio.
+  >
+  > La cuenta vive en `lib/core/prediccion.ts` (`gastoNoVariable`), no compuesta en la
+  > página, y va con test. Que la componga la página dejaba al test **copiando** la suma en
+  > vez de llamarla: alguien cambiaba el Home y el test seguía en verde, que es exactamente
+  > lo que el test existía para impedir.
+  >
+  > Y el otro sumando se protege solo: `fijos.ts` descarta las cuotas por su cuenta (ver más
+  > abajo), así que los dos conjuntos son **disjuntos** le pase quien le pase la lista.
 - **En el promedio histórico** (`promedioHistoricoDiario`): hoy filtra `!m.esFijo`; tiene que
   excluir además las cuotas. Si no, un mes viejo con una compra grande sube el promedio que
   se usa en el arranque de los meses siguientes.
@@ -200,9 +207,21 @@ futuro se mira en Fijos y cuotas, que es el lugar que se construye para eso.
 comercio hay en el mes para decidir si llegaron todas las facturas. Si un comercio estuviera
 marcado como fijo *y* tuviera una compra en cuotas, la cuota se contaría como una factura
 llegada y el fijo figuraría pagado sin que llegara nada. Es textual el anti-objetivo de
-mezclar cuotas y facturas. La regla se cumple no filtrando adentro de `fijos.ts`, sino
-pasándole solo movimientos reales desde la página. **Hace falta un test que fije esto**: es un
-bug silencioso, no rompe nada, solo miente.
+mezclar cuotas y facturas. Es un bug silencioso: no rompe nada, solo miente.
+
+Esta parte del diseño se revisó y cambió. Decía que la regla se cumplía **sin** filtrar
+adentro de `fijos.ts`, pasándole solo movimientos reales desde cada página, por miedo al
+doble descuento de la predicción. Pero una convención que hay que recordar en cada pantalla
+nueva no es una garantía, y nada fallaba al violarla. **`fijos.ts` filtra las cuotas en sus
+propias entradas** (`checklistFijos` y `fijosYaPagados`; `fijosPendientes` y `contadorFijos`
+van por la primera). Hoy no cambia nada —las páginas ya le pasan movimientos reales— pero
+convierte la regla en algo que no se puede violar.
+
+Y el doble descuento que se temía es justo lo que el filtro evita: filtrando adentro, lo
+que cuenta `fijos.ts` y lo que suma `gastoContraTope(cuotasDelMes, …)` son conjuntos
+**disjuntos**, así que sumarlos nunca cuenta una cuota dos veces. La objeción de pureza
+tampoco aplica: `esCuota` es una función pura del mismo `lib/core`, y `prediccion.ts` ya la
+importa. Va con test de los dos lados.
 
 **El presupuesto no cuenta cuotas.** El presupuesto es la plata que el usuario separa en
 efectivo y transferencias —verdulería, gym, la inversión del mes—; una cuota de tarjeta no es
@@ -286,7 +305,7 @@ Lo que va adentro de una `Seccion` no lleva `Card` propia: la sección ya pone e
 A dónde llega el usuario cuando toca una cuota.
 
 - Comercio, fecha de compra, y el hero: la cuota de este mes.
-- Barra de avance y el renglón de números: *"Cuota 1 de 12 · quedan 11 · $534.500 por pagar ·
+- Barra de avance y el renglón de números: *"Cuota 1 de 12 · quedan 11 · $533.500 por pagar ·
   total $582.000 · última en octubre 2027."*
 - El mes a mes del plan.
 - **Editar el plan** — reusa `FormGasto` con una prop `compra`, igual que hoy reusa el mismo
