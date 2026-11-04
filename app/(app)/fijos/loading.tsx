@@ -1,6 +1,6 @@
 import { Cargando, Card, Esqueleto } from '@/components/ds'
 
-/** Fallback de Fijos: cuánto falta pagar y el checklist. */
+/** Fallback de Fijos y cuotas: la card de arriba y las dos secciones plegadas. */
 export default function CargandoFijos() {
   return (
     <Cargando>
@@ -12,18 +12,8 @@ export default function CargandoFijos() {
         <Esqueleto className="h-2 w-full rounded-full" />
       </Card>
 
-      <Card className="p-space-sm gap-space-md">
-        {[0, 1, 2, 3, 4].map((i) => (
-          <div key={i} className="gap-space-sm flex items-center">
-            <Esqueleto className="size-9 shrink-0 rounded-full" />
-            <div className="gap-space-xs flex flex-1 flex-col">
-              <Esqueleto className="h-4 w-28" />
-              <Esqueleto className="h-3 w-20" />
-            </div>
-            <Esqueleto className="h-5 w-20 shrink-0" />
-          </div>
-        ))}
-      </Card>
+      <Esqueleto className="h-14 w-full rounded-xl" />
+      <Esqueleto className="h-14 w-full rounded-xl" />
     </Cargando>
   )
 }

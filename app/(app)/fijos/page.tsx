@@ -1,19 +1,27 @@
 import { getMovimientosDelMes } from '@/lib/db/movimientos'
 import { getGastosFijos } from '@/lib/db/gastosFijos'
 import { getComercios } from '@/lib/db/comercios'
-import { mesActual, nombreMes } from '@/lib/core/fechas'
+import { getComprasEnCuotas } from '@/lib/db/cuotas'
+import { mesActual, nombreMes, sumarMeses } from '@/lib/core/fechas'
 import { checklistFijos, contadorFijos, fijosPendientes } from '@/lib/core/fijos'
+import { planesActivos, proximosMeses } from '@/lib/core/cuotas'
 import { formatoARS, sumar, porcentaje } from '@/lib/core/dinero'
 import { FilaFijo } from '@/components/FilaFijo'
 import { AltaFijo } from '@/components/AltaFijo'
+import { Seccion } from '@/components/Seccion'
+import { SeccionCuotas } from '@/components/SeccionCuotas'
 import { Card, TituloCard, MontoHero, Barra, Banner } from '@/components/ds'
 
 export default async function FijosPage() {
   const mes = mesActual()
-  const [movs, fijos, comercios] = await Promise.all([
+  // Los fijos solo cuentan movimientos reales: una cuota derivada de un
+  // comercio `es_fijo` nunca entra acá. Si entrara, el checklist la leería
+  // como una factura que llegó aunque nada se haya cargado ese mes.
+  const [movs, fijos, comercios, compras] = await Promise.all([
     getMovimientosDelMes(mes),
     getGastosFijos(),
     getComercios(),
+    getComprasEnCuotas(),
   ])
 
   const filas = checklistFijos(fijos, movs, mes)
@@ -21,6 +29,10 @@ export default async function FijosPage() {
   const pendiente = fijosPendientes(fijos, movs, mes)
   const esperado = sumar(...filas.map((f) => f.estimado))
   const pagado = sumar(...filas.map((f) => f.pagado))
+
+  const planes = planesActivos(compras, mes)
+  const totalPlanesMes = sumar(...planes.map((p) => p.importe))
+  const proximos = proximosMeses(compras, sumarMeses(mes, 1), 4)
 
   // La barra cuenta facturas y no plata, igual que el estado de cada fila:
   // con todas las facturas adentro llega al 100% aunque hayan salido más
@@ -43,16 +55,23 @@ export default async function FijosPage() {
   return (
     <div className="gap-space-lg flex flex-col">
       <header>
-        <h1 className="text-headline-lg-mobile text-on-surface">Gastos fijos</h1>
+        <h1 className="text-headline-lg-mobile text-on-surface">Fijos y cuotas</h1>
         <p className="text-body-sm text-on-surface-variant">{nombreMes(mes)}</p>
       </header>
 
+      {/* Esta card es solo de gastos fijos: mide facturas, no plata (ver el
+          comentario de más abajo), y una cuota no es una factura. No le sumes
+          el total de cuotas acá — "Cuotas" tiene su propio resumen abajo. */}
       <Card>
         <TituloCard>{todoPago ? 'Todo pago' : 'Falta pagar'}</TituloCard>
         <MontoHero tono={todoPago ? 'ok' : 'atencion'}>
           {formatoARS(pendiente)}
         </MontoHero>
         <Barra
+          // La barra cuenta facturas y no plata, igual que el estado de cada
+          // fila: con todas las facturas adentro llega al 100% aunque hayan
+          // salido más baratas de lo esperado, que es justo cuando la card
+          // dice "Todo pago".
           porcentaje={porcentaje(facturasPagas, facturasEsperadas)}
           tono={todoPago ? 'ok' : 'atencion'}
           etiqueta={`Gastos fijos: ${facturasPagas} de ${facturasEsperadas} facturas`}
@@ -66,15 +85,11 @@ export default async function FijosPage() {
         </p>
       </Card>
 
-      <section className="gap-space-sm flex flex-col">
-        <h2 className="text-headline-md text-on-surface px-space-xs">Checklist</h2>
-
+      <Seccion titulo="Gastos fijos" contador={`${facturasPagas} de ${facturasEsperadas} facturas`} abierta>
         {ordenadas.length === 0 ? (
-          <Card>
-            <p className="text-body-md text-on-surface-variant text-center">
-              Todavía no marcaste ningún gasto como fijo.
-            </p>
-          </Card>
+          <p className="text-body-md text-on-surface-variant text-center">
+            Todavía no marcaste ningún gasto como fijo.
+          </p>
         ) : (
           <>
             <Banner icono="auto_awesome">
@@ -82,18 +97,23 @@ export default async function FijosPage() {
               facturas del mes. Se cuentan facturas, no plata — si la luz vino
               más barata que lo esperado, igual está paga.
             </Banner>
-            <Card className="p-space-sm gap-0">
-              <ul>
-                {ordenadas.map((fila) => (
-                  <FilaFijo key={fila.gastoFijoId} fila={fila} />
-                ))}
-              </ul>
-            </Card>
+            <ul>
+              {ordenadas.map((fila) => (
+                <FilaFijo key={fila.gastoFijoId} fila={fila} />
+              ))}
+            </ul>
           </>
         )}
-      </section>
 
-      <AltaFijo comercios={disponibles} />
+        <AltaFijo comercios={disponibles} />
+      </Seccion>
+
+      <Seccion
+        titulo="Cuotas"
+        contador={`${planes.length} ${planes.length === 1 ? 'plan' : 'planes'} · ${formatoARS(totalPlanesMes)}`}
+      >
+        <SeccionCuotas planes={planes} meses={proximos} />
+      </Seccion>
     </div>
   )
 }
