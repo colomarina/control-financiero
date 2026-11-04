@@ -8,6 +8,7 @@ import {
   editarMovimiento,
   eliminarMovimiento,
 } from '@/app/actions/movimientos'
+import { guardarCompraEnCuotas } from '@/app/actions/cuotas'
 import {
   FORMAS_PAGO,
   ETIQUETA_FORMA_PAGO,
@@ -26,6 +27,9 @@ import {
   estaVacio,
   type Importe,
 } from '@/lib/core/keypad'
+import { parsearImporte, formatoARS } from '@/lib/core/dinero'
+import { nombreMes } from '@/lib/core/fechas'
+import { resumenPlan } from '@/lib/core/cuotas'
 import { cn } from '@/lib/utils'
 
 /**
@@ -80,6 +84,10 @@ export function FormGasto({
   )
   const [comercioId, setComercioId] = useState(movimiento?.comercioId ?? '')
   const [busqueda, setBusqueda] = useState(movimiento?.comercio ?? '')
+  // Arranca en 1 (un gasto de siempre). `CampoFecha` guarda la fecha en un
+  // input oculto; este estado es la única copia que el resumen necesita leer.
+  const [cuotas, setCuotas] = useState(1)
+  const [fecha, setFecha] = useState(movimiento?.fecha ?? hoy)
   const listaId = useId()
   const formRef = useRef<HTMLFormElement>(null)
 
@@ -91,7 +99,9 @@ export function FormGasto({
     startTransition(async () => {
       const r = esEdicion
         ? await editarMovimiento(null, formData)
-        : await guardarMovimiento(null, formData)
+        : cuotas >= 2
+          ? await guardarCompraEnCuotas(null, formData)
+          : await guardarMovimiento(null, formData)
 
       if (!r) return
 
@@ -115,6 +125,8 @@ export function FormGasto({
       setComercioId('')
       setBusqueda('')
       setVersionFecha((v) => v + 1)
+      setFecha(hoy)
+      setCuotas(1)
     })
   }
 
@@ -164,13 +176,63 @@ export function FormGasto({
       <input type="hidden" name="formaPago" value={formaPago} />
 
       {/* El importe es el protagonista. El valor viaja como texto ('1.500,50')
-          porque la action lo parsea con `parsearImporte`. */}
+          porque la action lo parsea con `parsearImporte`. Con 2+ cuotas es el
+          importe de CADA cuota, no el total: `guardarCompraEnCuotas` lo toma así. */}
       <input type="hidden" name="importe" value={mostrar(importe)} />
+      {!esEdicion && <input type="hidden" name="cuotas" value={cuotas} />}
 
       <Card>
         <TituloCard>Importe</TituloCard>
         <Keypad valor={importe} onChange={setImporte} />
       </Card>
+
+      {/* No tiene sentido al editar: convertir un gasto suelto ya cargado en
+          una compra en cuotas (o viceversa) es otra operación, no una edición,
+          y dejar el stepper visible ahí sería un control a la vista que no
+          hace nada. */}
+      {!esEdicion && (
+        <Card>
+          <TituloCard>Cuotas</TituloCard>
+          <div className="gap-space-lg flex items-center justify-center">
+            <button
+              type="button"
+              onClick={() => setCuotas((c) => Math.max(1, c - 1))}
+              disabled={cuotas === 1}
+              aria-label="Menos cuotas"
+              className="bg-surface-container-high text-on-surface flex h-11 w-11 items-center justify-center rounded-lg transition-transform active:scale-95 disabled:opacity-40"
+            >
+              <Icono nombre="remove" className="text-[20px]" />
+            </button>
+            <span className="text-headline-sm text-on-surface w-8 text-center tabular-nums">
+              {cuotas}
+            </span>
+            <button
+              type="button"
+              onClick={() => setCuotas((c) => Math.min(48, c + 1))}
+              disabled={cuotas === 48}
+              aria-label="Más cuotas"
+              className="bg-surface-container-high text-on-surface flex h-11 w-11 items-center justify-center rounded-lg transition-transform active:scale-95 disabled:opacity-40"
+            >
+              <Icono nombre="add" className="text-[20px]" />
+            </button>
+          </div>
+
+          {cuotas >= 2 &&
+            (() => {
+              const cuota = parsearImporte(mostrar(importe)) ?? 0
+              const { total, desde, hasta } = resumenPlan(cuota, cuotas, fecha)
+              return (
+                <Banner icono="credit_card">
+                  <span className="text-on-surface">
+                    {cuotas} cuotas de {formatoARS(cuota)} ={' '}
+                    <span className="text-primary">{formatoARS(total)}</span>. De{' '}
+                    {nombreMes(desde)} a {nombreMes(hasta)}.
+                  </span>
+                </Banner>
+              )
+            })()}
+        </Card>
+      )}
 
       <Card>
         <TituloCard>Comercio</TituloCard>
@@ -277,6 +339,7 @@ export function FormGasto({
               key={versionFecha}
               name="fecha"
               defaultValue={movimiento?.fecha ?? hoy}
+              onChange={setFecha}
             />
           </div>
           <div className="gap-space-xs flex flex-col">
