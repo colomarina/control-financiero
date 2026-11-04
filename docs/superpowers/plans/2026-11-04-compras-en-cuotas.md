@@ -182,7 +182,7 @@ export function resumenPlan(importeCuotaCentavos: number, cuotas: number, fechaC
 
 - [ ] **Step 1: Escribir los tests que fallan en `lib/core/cuotas.test.ts`**
 
-Fixtures al estilo de `fijos.test.ts`: ids uuid fijos, números redondos, nombres genéricos. Una helper `compra(p: Partial<CompraCuotasDetalle> = {}): CompraCuotasDetalle` con default `fecha: '2026-11-03'`, `cuotas: 12`, `importeCuotaCentavos: 48_500`, `formaPago: 'tarjeta_credito'`, `esFijo: false`.
+Fixtures al estilo de `fijos.test.ts`: ids uuid fijos, números redondos, nombres genéricos. Una helper `compra(p: Partial<CompraCuotasDetalle> = {}): CompraCuotasDetalle` con default `fecha: '2026-11-03'`, `cuotas: 12`, `importeCuotaCentavos: 48_500`, `formaPago: 'tarjeta_credito'`, `comercio: 'Asistencia'`, `categoria: 'Seguros'`, `subcategoria: null`, `esFijo: false`.
 
 ```ts
 describe('numeroDeCuota', () => {
@@ -411,6 +411,8 @@ Expected: las dos corridas terminan sin error.
 
 Espejo de `lib/db/movimientos.ts`: `'server-only'` arriba, constante `COLUMNAS`, tipo `FilaDetalle` con los nombres de Postgres, función `aDominio` que pasa a camelCase y envuelve los `bigint` en `Number()`. Los errores se tiran con el mismo formato (`No pude leer las compras en cuotas: ${error.message}`).
 
+Los parámetros de escritura van tipados como un **objeto inline explícito**, igual que `crearMovimiento`, y no como `NuevaCompraCuotas`: ese alias es `z.input`, donde `banco`/`tarjeta`/`nota` son opcionales, mientras que lo que llega de la action es la **salida** del parseo, con los defaults ya aplicados. Tiparlo con el alias compila pero miente sobre lo que la función recibe.
+
 `getComprasEnCuotas` trae **todas** las filas sin filtro de fecha: un plan viejo sigue haciendo falta para el historial de sus meses, y son decenas de filas en toda la vida de la app.
 
 - [ ] **Step 4: Verificar que compila y pasa el lint**
@@ -508,6 +510,7 @@ git commit -m "Prediccion: las cuotas no entran al ritmo variable"
 
 **Files:**
 - Modify: `components/FormGasto.tsx`
+- Modify: `components/CampoFecha.tsx` (sumarle un `onChange` opcional; ver Step 2)
 - Create: `app/actions/cuotas.ts`
 
 **Interfaces:**
