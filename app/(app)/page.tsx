@@ -1,8 +1,10 @@
 import { getMovimientosDesde } from '@/lib/db/movimientos'
 import { getGastosFijos } from '@/lib/db/gastosFijos'
+import { getComprasEnCuotas } from '@/lib/db/cuotas'
 import { getConfig } from '@/lib/db/config'
 import { mesActual, nombreMes, diaActual, diasDelMes, sumarMeses } from '@/lib/core/fechas'
-import { gastoTarjetaMes, gastoEfectivoMes, movimientosOrdenados } from '@/lib/core/gastos'
+import { gastoTarjetaMes, gastoEfectivoMes, gastoContraTope, movimientosOrdenados } from '@/lib/core/gastos'
+import { cuotasDelMes, cuotasEntre } from '@/lib/core/cuotas'
 import { resumenTope } from '@/lib/core/topes'
 import { fijosPendientes, fijosYaPagados, contadorFijos } from '@/lib/core/fijos'
 import {
@@ -23,18 +25,29 @@ export default async function HomePage() {
 
   // Una sola consulta trae el mes actual + el histórico que necesita la predicción.
   const desde = sumarMeses(mes, -config.mesesHistorico)
-  const [movs, fijos] = await Promise.all([getMovimientosDesde(desde), getGastosFijos()])
+  const [movs, fijos, compras] = await Promise.all([
+    getMovimientosDesde(desde),
+    getGastosFijos(),
+    getComprasEnCuotas(),
+  ])
+
+  // `movs` son los movimientos reales y no se tocan: los fijos se derivan
+  // contando movimientos por comercio, y una cuota de un comercio fijo haría
+  // que el fijo lea como pagado sin que llegara nada. `conCuotas` es la lista
+  // mezclada para todo lo que sí tiene que ver la cuota (topes, lista, ritmo).
+  const cuotasMes = cuotasDelMes(compras, mes)
+  const conCuotas = [...movs, ...cuotasEntre(compras, desde, mes)]
 
   const hoy = diaActual()
   const dias = diasDelMes(mes)
 
   const tarjeta = resumenTope(
-    gastoTarjetaMes(movs, mes),
+    gastoTarjetaMes(conCuotas, mes),
     config.topeTarjetaCentavos,
     config.umbralCercaPct,
   )
   const efectivo = resumenTope(
-    gastoEfectivoMes(movs, mes),
+    gastoEfectivoMes(conCuotas, mes),
     config.topeEfectivoCentavos,
     config.umbralCercaPct,
   )
@@ -47,10 +60,15 @@ export default async function HomePage() {
     tasaDiaria: tasaDiariaAplicable({
       tasaMesActual: tasaVariableDiaria({
         gastadoReal: tarjeta.gastado,
-        fijosYaPagados: fijosYaPagados(fijos, movs, mes, 'tarjeta'),
+        // Unión de lo que ya no es variable: los fijos ya pagados (sobre los
+        // movimientos reales) más las cuotas del mes, que tampoco se repiten
+        // día a día. Pasarle `conCuotas` a `fijosYaPagados` descontaría una
+        // cuota de un comercio fijo dos veces.
+        fijosYaPagados:
+          fijosYaPagados(fijos, movs, mes, 'tarjeta') + gastoContraTope(cuotasMes, mes, 'tarjeta'),
         diaActual: hoy,
       }),
-      promHistorico: promedioHistoricoDiario(movs, mes, config.mesesHistorico, 'tarjeta'),
+      promHistorico: promedioHistoricoDiario(conCuotas, mes, config.mesesHistorico, 'tarjeta'),
       diaActual: hoy,
       umbralDia: config.umbralDia,
     }),
@@ -60,7 +78,7 @@ export default async function HomePage() {
   })
 
   const fijosContador = contadorFijos(fijos, movs, mes)
-  const delMes = movimientosOrdenados(movs, mes)
+  const delMes = movimientosOrdenados(conCuotas, mes)
   const seVaAPasar = superaElTope(prediccion, config.topeTarjetaCentavos)
 
   return (

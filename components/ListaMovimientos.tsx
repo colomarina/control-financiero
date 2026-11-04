@@ -1,8 +1,9 @@
 import Link from 'next/link'
 import { formatoARS } from '@/lib/core/dinero'
 import { diaDe } from '@/lib/core/fechas'
+import { esCuota } from '@/lib/core/cuotas'
 import { ETIQUETA_FORMA_PAGO, type MovimientoDetalle } from '@/lib/schemas/movimiento'
-import { Card, ItemLista, Separador, Monto } from '@/components/ds'
+import { Card, ItemLista, Separador, Monto, Badge } from '@/components/ds'
 
 /**
  * Ícono por categoría. Material Symbols, como pide el design system.
@@ -50,27 +51,44 @@ export function ListaMovimientos({ movimientos }: { movimientos: MovimientoDetal
           </h3>
 
           <Card className="p-space-sm gap-0">
-            {delDia.map((m, i) => (
-              <div key={m.id}>
-                {i > 0 && <Separador />}
-                {/* Tocar un movimiento lo abre para editar o borrar. */}
-                <Link
-                  href={`/movimiento/${m.id}`}
-                  // `active:` y no solo `hover:`: en el celular no hay hover, y
-                  // el destello al tocar es lo único que confirma el toque
-                  // antes de que aparezca el esqueleto de la otra pantalla.
-                  className="hover:bg-surface-container-high active:bg-surface-container-highest block rounded-lg transition-colors"
-                >
-                  <ItemLista
-                    icono={iconoDe(m.categoria)}
-                    tonoIcono={m.esFijo ? 'neutro' : 'ok'}
-                    titulo={m.comercio}
-                    detalle={`${m.categoria}${m.subcategoria ? ` · ${m.subcategoria}` : ''} · ${ETIQUETA_FORMA_PAGO[m.formaPago]}`}
-                    derecha={<Monto>{formatoARS(m.importeCentavos)}</Monto>}
-                  />
-                </Link>
-              </div>
-            ))}
+            {delDia.map((m, i) => {
+              // Una cuota derivada no es una fila de `movimientos`: su `id` es
+              // sintético (`cuota:<compraId>:<numero>`). Nunca enlaza a
+              // `/movimiento/[id]`, siempre a la compra que la generó.
+              const c = esCuota(m) ? m.cuota : null
+              return (
+                <div key={m.id}>
+                  {i > 0 && <Separador />}
+                  {/* Tocar un movimiento lo abre para editar o borrar. */}
+                  <Link
+                    href={c ? `/compra/${c.compraId}` : `/movimiento/${m.id}`}
+                    // `active:` y no solo `hover:`: en el celular no hay hover, y
+                    // el destello al tocar es lo único que confirma el toque
+                    // antes de que aparezca el esqueleto de la otra pantalla.
+                    className="hover:bg-surface-container-high active:bg-surface-container-highest block rounded-lg transition-colors"
+                  >
+                    <ItemLista
+                      icono={iconoDe(m.categoria)}
+                      tonoIcono={m.esFijo ? 'neutro' : 'ok'}
+                      titulo={
+                        c ? (
+                          <span className="gap-space-xs flex items-center">
+                            <Badge tono={c.numero === c.total ? 'atencion' : 'neutro'}>
+                              {c.numero}/{c.total}
+                            </Badge>
+                            {m.comercio}
+                          </span>
+                        ) : (
+                          m.comercio
+                        )
+                      }
+                      detalle={`${m.categoria}${m.subcategoria ? ` · ${m.subcategoria}` : ''} · ${ETIQUETA_FORMA_PAGO[m.formaPago]}`}
+                      derecha={<Monto>{formatoARS(m.importeCentavos)}</Monto>}
+                    />
+                  </Link>
+                </div>
+              )
+            })}
           </Card>
         </div>
       ))}
