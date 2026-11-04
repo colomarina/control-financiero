@@ -56,15 +56,16 @@ export async function guardarFijo(
 
 /**
  * Igual que `guardarFijo` pero para un `<form action>` sin `useActionState`.
- * Lo usa la fila del checklist, que no muestra estado propio.
+ * Lo usa la fila del checklist.
  *
- * Si falla, **tira**: sin estado propio donde mostrar el error, devolverlo sería
- * tragárselo, y el usuario vería la fila volver intacta como si hubiera
- * guardado. Que lo levante `app/(app)/error.tsx`.
+ * Antes **tiraba**: sin estado propio donde mostrar el error, devolverlo era
+ * tragárselo y el usuario veía la fila volver intacta como si hubiera
+ * guardado. Ahora la fila es una `FilaEditable`, que tiene dónde mostrarlo: un
+ * monto mal tipeado es un toast rojo con la fila abierta, y no una pantalla de
+ * error que se lleva puesto todo el checklist.
  */
-export async function guardarFijoDirecto(formData: FormData): Promise<void> {
-  const r = await guardarFijo(null, formData)
-  if (r && !r.ok) throw new Error(r.error)
+export async function guardarFijoDirecto(formData: FormData): Promise<EstadoFijoForm> {
+  return guardarFijo(null, formData)
 }
 
 export async function darDeBaja(formData: FormData): Promise<void> {

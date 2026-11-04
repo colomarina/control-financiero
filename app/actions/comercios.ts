@@ -48,9 +48,13 @@ export async function nuevoComercio(
 
 /**
  * Edita un comercio desde la fila del catálogo.
- * Es un `<form action>` sin estado: el resultado se ve en la propia lista.
+ *
+ * Devuelve el resultado para que `FilaEditable` lo muestre en un toast y
+ * cierre el editor. Antes devolvía `void` y un nombre vacío se descartaba en
+ * silencio: la fila quedaba abierta con el texto mal y nada decía que no se
+ * había guardado.
  */
-export async function actualizarComercio(formData: FormData): Promise<void> {
+export async function actualizarComercio(formData: FormData): Promise<EstadoComercio> {
   const parsed = editarComercioSchema.safeParse({
     id: formData.get('id'),
     nombre: formData.get('nombre'),
@@ -60,9 +64,17 @@ export async function actualizarComercio(formData: FormData): Promise<void> {
     activo: formData.get('activo') === 'on',
   })
 
-  if (!parsed.success) return
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0].message }
+  }
 
   const { id, ...cambios } = parsed.data
-  await editarComercio(id, cambios)
+  try {
+    await editarComercio(id, cambios)
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'No pude guardarlo.' }
+  }
+
   revalidatePath('/', 'layout')
+  return { ok: true, mensaje: 'Comercio guardado.' }
 }

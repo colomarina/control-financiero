@@ -53,9 +53,12 @@ export async function guardarLineaPlan(
   }
 }
 
-/** Para los `<form action>` de las filas, que no muestran estado propio. */
-export async function guardarLineaDirecto(formData: FormData): Promise<void> {
-  await guardarLineaPlan(null, formData)
+/**
+ * Para la fila del plan, que no usa `useActionState`. Devuelve el resultado
+ * para que `FilaEditable` lo muestre en un toast y cierre el editor.
+ */
+export async function guardarLineaDirecto(formData: FormData): Promise<EstadoPlan> {
+  return guardarLineaPlan(null, formData)
 }
 
 /** Arrastra el plan del mes anterior al mes que estás mirando. */
