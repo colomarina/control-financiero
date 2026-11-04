@@ -253,9 +253,26 @@ manda el gasto al día siguiente.
   `Esqueleto`/`Cargando`, y las clases `campo`,
   `botonPrimario`, `botonSecundario`, `etiqueta`. Usarlas antes de repetir clases
   sueltas. El semáforo tiene un solo mapa: el tipo `Semaforo`.
-  - `Seccion` (la card plegable) vive aparte, en `components/Seccion.tsx`, porque es
-    el único pedazo del design system que necesita estado: con `montarAlAbrir` no
-    dibuja el contenido hasta que se abre. Los hijos los sigue renderizando el server.
+  - Dos piezas viven aparte porque necesitan estado propio; las dos siguen dejando
+    que el server renderice a sus hijos.
+    - `Seccion` (`components/Seccion.tsx`), la card plegable: con `montarAlAbrir` no
+      dibuja el contenido hasta que se abre.
+    - `FilaEditable` (`components/FilaEditable.tsx`), **la fila de lista que se abre
+      para editarse**. La usan las tres pantallas que tienen una: el plan de
+      `/presupuesto`, el checklist de `/fijos` y el catálogo de `/config`. Pone el
+      lápiz en círculo que se tiñe al abrirse, y al guardar muestra el toast y
+      **cierra la fila**. No armar otra a mano: antes cada pantalla resolvía lo mismo
+      distinto —un "Editar plan" subrayado, un lápiz, nada— y en las tres guardar no
+      se veía, porque la página se revalidaba por detrás con el editor abierto
+      mostrando lo mismo de antes.
+      - Por eso **la action de una fila devuelve `{ ok, mensaje } | { ok, error }`,
+        nunca `void`**: sin eso no hay qué avisar ni cuándo cerrar. `guardarFijoDirecto`
+        además **tiraba** para que el error no se lo tragara nadie; ahora el toast es
+        ese lugar, así que un monto mal tipeado no se lleva puesto el checklist entero.
+      - El padding de la fila cerrada lo trae el `resumen` de cada pantalla, no el
+        componente: así una fila se ve igual que antes de tener editor.
+      - Lo que no es parte del formulario va en `pie`, fuera del `<form>`. Ahí está el
+        "Quitar de fijos", que es su propio form y anidado no podría existir.
 - **Esperar tiene dos capas, y las dos tienen que estar.** Cada ruta trae su
   `loading.tsx` con el esqueleto de *esa* pantalla (no uno genérico: la gracia es
   reservar la forma final para que al llegar los datos nada salte). Pero el esqueleto
@@ -352,10 +369,8 @@ plan Free de Supabase no hace backups automáticos.
     filtro puesto no lo esconde —el contador pasa a "12 de 48", aparece el total filtrado
     y la lupa queda en verde—; un mes al que le faltan movimientos sin explicación sería
     el bug.
-- **Checklist de fijos**: la fila entera es el `<summary>` de un `<details>`, con el lápiz
-  al final —después del badge de estado— como pista de que se abre. Adentro hay un `<form>`
-  normal que postea a la Server Action. El campo "Facturas por mes" es el que distingue a
-  Personal Flow, que llega en dos.
+- **Checklist de fijos**: la fila entera abre su editor, con `FilaEditable` (ver arriba).
+  El campo "Facturas por mes" es el que distingue a Personal Flow, que llega en dos.
 - **Nada de `<select>` nativo: va `components/CampoSelect.tsx`.** El menú de un select lo
   dibuja el sistema operativo y no se puede vestir —en el escritorio sale con fondo claro y
   el highlight azul de Windows—, que es exactamente el motivo por el que `CampoFecha`
