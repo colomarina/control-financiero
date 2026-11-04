@@ -8,13 +8,18 @@ import {
   editarMovimiento,
   eliminarMovimiento,
 } from '@/app/actions/movimientos'
-import { guardarCompraEnCuotas } from '@/app/actions/cuotas'
+import {
+  guardarCompraEnCuotas,
+  editarCompraEnCuotas,
+  eliminarCompraEnCuotas,
+} from '@/app/actions/cuotas'
 import {
   FORMAS_PAGO,
   ETIQUETA_FORMA_PAGO,
   type FormaPago,
   type MovimientoDetalle,
 } from '@/lib/schemas/movimiento'
+import type { CompraCuotasDetalle } from '@/lib/schemas/compraCuotas'
 import type { Comercio } from '@/lib/schemas/comercio'
 import { Card, TituloCard, Banner, campo, botonPrimario } from '@/components/ds'
 import { Icono } from '@/components/Icono'
@@ -47,6 +52,8 @@ export function FormGasto({
   frecuentes,
   hoy,
   movimiento,
+  compra,
+  minimoCuotas = 1,
 }: {
   comercios: Comercio[]
   /** Atajos: los comercios más usados en los últimos dos meses. */
@@ -54,8 +61,22 @@ export function FormGasto({
   hoy: string
   /** Si viene, el formulario edita ese movimiento en vez de crear uno nuevo. */
   movimiento?: MovimientoDetalle
+  /** Si viene, el formulario edita esa compra en cuotas en vez de un movimiento suelto. */
+  compra?: CompraCuotasDetalle
+  /**
+   * Piso del stepper de Cuotas al editar una compra: las que ya transcurrieron
+   * no se pueden bajar. Viene calculado del server —`cuotasTranscurridas`
+   * necesita "hoy", y este componente es cliente— y no se usa fuera de ese modo.
+   */
+  minimoCuotas?: number
 }) {
-  const esEdicion = movimiento !== undefined
+  // Tres modos: alta (ninguno de los dos), editar un movimiento suelto, o
+  // editar una compra en cuotas. `base` junta los campos que movimiento y
+  // compra comparten (fecha, comercio, forma de pago...) para no repetir el
+  // ternario en cada inicialización.
+  const esCompra = compra !== undefined
+  const esEdicion = movimiento !== undefined || esCompra
+  const base = movimiento ?? compra
   const router = useRouter()
 
   const [enTransicion, startTransition] = useTransition()
@@ -73,21 +94,24 @@ export function FormGasto({
   const [borrando, setBorrando] = useState(false)
   const pendiente = enTransicion || saliendo
   const [importe, setImporte] = useState<Importe>(
-    movimiento ? desdeCentavos(movimiento.importeCentavos) : IMPORTE_VACIO,
+    movimiento
+      ? desdeCentavos(movimiento.importeCentavos)
+      : compra
+        ? desdeCentavos(compra.importeCuotaCentavos)
+        : IMPORTE_VACIO,
   )
   // `form.reset()` no alcanza para un campo controlado: sin esto, después de
   // cargar un gasto de ayer el siguiente arrancaría también en ayer. Cambiar
   // la key remonta el campo y vuelve a hoy.
   const [versionFecha, setVersionFecha] = useState(0)
-  const [formaPago, setFormaPago] = useState<FormaPago>(
-    movimiento?.formaPago ?? 'tarjeta_credito',
-  )
-  const [comercioId, setComercioId] = useState(movimiento?.comercioId ?? '')
-  const [busqueda, setBusqueda] = useState(movimiento?.comercio ?? '')
-  // Arranca en 1 (un gasto de siempre). `CampoFecha` guarda la fecha en un
-  // input oculto; este estado es la única copia que el resumen necesita leer.
-  const [cuotas, setCuotas] = useState(1)
-  const [fecha, setFecha] = useState(movimiento?.fecha ?? hoy)
+  const [formaPago, setFormaPago] = useState<FormaPago>(base?.formaPago ?? 'tarjeta_credito')
+  const [comercioId, setComercioId] = useState(base?.comercioId ?? '')
+  const [busqueda, setBusqueda] = useState(base?.comercio ?? '')
+  // En alta arranca en 1 (un gasto de siempre); al editar una compra, en el
+  // número de cuotas que tiene hoy. `CampoFecha` guarda la fecha en un input
+  // oculto; este estado es la única copia que el resumen necesita leer.
+  const [cuotas, setCuotas] = useState(compra?.cuotas ?? 1)
+  const [fecha, setFecha] = useState(base?.fecha ?? hoy)
   const listaId = useId()
   const formRef = useRef<HTMLFormElement>(null)
 
@@ -97,11 +121,13 @@ export function FormGasto({
    */
   function enviar(formData: FormData) {
     startTransition(async () => {
-      const r = esEdicion
-        ? await editarMovimiento(null, formData)
-        : cuotas >= 2
-          ? await guardarCompraEnCuotas(null, formData)
-          : await guardarMovimiento(null, formData)
+      const r = esCompra
+        ? await editarCompraEnCuotas(null, formData)
+        : movimiento
+          ? await editarMovimiento(null, formData)
+          : cuotas >= 2
+            ? await guardarCompraEnCuotas(null, formData)
+            : await guardarMovimiento(null, formData)
 
       if (!r) return
 
@@ -131,12 +157,15 @@ export function FormGasto({
   }
 
   function borrar() {
-    if (!movimiento) return
-    if (!confirm(`¿Borrar el gasto de ${movimiento.comercio}? No se puede deshacer.`)) return
+    if (!base) return
+    const mensaje = compra
+      ? `¿Borrar la compra en ${compra.comercio}? Desaparecen también las cuotas que ya pasaron. No se puede deshacer.`
+      : `¿Borrar el gasto de ${base.comercio}? No se puede deshacer.`
+    if (!confirm(mensaje)) return
 
     setBorrando(true)
     startTransition(async () => {
-      const r = await eliminarMovimiento(movimiento.id)
+      const r = compra ? await eliminarCompraEnCuotas(compra.id) : await eliminarMovimiento(base.id)
       if (r?.ok) {
         toast.success(r.mensaje)
         setSaliendo(true)
@@ -171,7 +200,7 @@ export function FormGasto({
 
   return (
     <form ref={formRef} action={enviar} className="gap-space-md flex flex-col">
-      {movimiento && <input type="hidden" name="id" value={movimiento.id} />}
+      {base && <input type="hidden" name="id" value={base.id} />}
       <input type="hidden" name="comercioId" value={comercioId} />
       <input type="hidden" name="formaPago" value={formaPago} />
 
@@ -179,25 +208,31 @@ export function FormGasto({
           porque la action lo parsea con `parsearImporte`. Con 2+ cuotas es el
           importe de CADA cuota, no el total: `guardarCompraEnCuotas` lo toma así. */}
       <input type="hidden" name="importe" value={mostrar(importe)} />
-      {!esEdicion && <input type="hidden" name="cuotas" value={cuotas} />}
+      {/* No va al editar un movimiento suelto: ese modo ni siquiera muestra el
+          campo. Sí va en alta (venga o no a ser una compra) y al editar una
+          compra, que siempre manda `cuotas`. */}
+      {!movimiento && <input type="hidden" name="cuotas" value={cuotas} />}
 
       <Card>
         <TituloCard>Importe</TituloCard>
         <Keypad valor={importe} onChange={setImporte} />
       </Card>
 
-      {/* No tiene sentido al editar: convertir un gasto suelto ya cargado en
-          una compra en cuotas (o viceversa) es otra operación, no una edición,
-          y dejar el stepper visible ahí sería un control a la vista que no
-          hace nada. */}
-      {!esEdicion && (
+      {/* Al editar un movimiento suelto no tiene sentido: convertir un gasto
+          ya cargado en una compra en cuotas (o viceversa) es otra operación,
+          no una edición, y dejar el stepper visible ahí sería un control a la
+          vista que no hace nada. Al editar una compra sí se muestra —achicar
+          el plan es la forma de registrar una baja o una devolución— con el
+          piso en `minimoCuotas`: las cuotas ya transcurridas no se pueden
+          borrar, quedan pagadas. */}
+      {!movimiento && (
         <Card>
           <TituloCard>Cuotas</TituloCard>
           <div className="gap-space-lg flex items-center justify-center">
             <button
               type="button"
-              onClick={() => setCuotas((c) => Math.max(1, c - 1))}
-              disabled={cuotas === 1}
+              onClick={() => setCuotas((c) => Math.max(minimoCuotas, c - 1))}
+              disabled={cuotas === minimoCuotas}
               aria-label="Menos cuotas"
               className="bg-surface-container-high text-on-surface flex h-11 w-11 items-center justify-center rounded-lg transition-transform active:scale-95 disabled:opacity-40"
             >
@@ -338,7 +373,7 @@ export function FormGasto({
             <CampoFecha
               key={versionFecha}
               name="fecha"
-              defaultValue={movimiento?.fecha ?? hoy}
+              defaultValue={base?.fecha ?? hoy}
               onChange={setFecha}
             />
           </div>
@@ -349,7 +384,7 @@ export function FormGasto({
               aria-label="Banco"
               placeholder="Opcional"
               autoComplete="off"
-              defaultValue={movimiento?.banco ?? ''}
+              defaultValue={base?.banco ?? ''}
               className={campo}
             />
           </div>
@@ -362,7 +397,7 @@ export function FormGasto({
             aria-label="Nota"
             placeholder="Opcional"
             autoComplete="off"
-            defaultValue={movimiento?.nota ?? ''}
+            defaultValue={base?.nota ?? ''}
             className={campo}
           />
         </div>
@@ -387,7 +422,11 @@ export function FormGasto({
           className="text-error text-body-md gap-space-sm flex h-12 w-full items-center justify-center rounded-lg transition-transform active:scale-95 disabled:opacity-40"
         >
           <Icono nombre={borrando ? 'hourglass_top' : 'delete'} className="text-[20px]" />
-          {borrando ? 'Borrando…' : 'Borrar gasto'}
+          {/* "Borrar gasto" alcanza para un movimiento: desaparece y listo. Una
+              compra necesita la aclaración, porque bajar las cuotas (arriba)
+              también borra algo —las que faltaban— y es la operación correcta
+              para una baja o devolución. Esto es para "lo cargué mal". */}
+          {borrando ? 'Borrando…' : esCompra ? 'Borrar — lo cargué mal' : 'Borrar gasto'}
         </button>
       )}
     </form>

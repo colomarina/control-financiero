@@ -140,6 +140,17 @@ export function fechaCorta(fecha: FechaISO): string {
 }
 
 /**
+ * Fecha larga para un encabezado: `"2026-09-15"` -> `"15 de septiembre de 2026"`.
+ * Para un título, no para una lista: ahí va `fechaCorta`.
+ */
+export function fechaLarga(fecha: FechaISO): string {
+  const m = RE_FECHA.exec(fecha)
+  if (!m) throw new Error(`Fecha inválida: ${fecha}. Se espera "YYYY-MM-DD".`)
+  const nombreDelMes = NOMBRES[Number(m[2]) - 1].toLowerCase()
+  return `${Number(m[3])} de ${nombreDelMes} de ${m[1]}`
+}
+
+/**
  * `"2026-10-15"` -> un `Date` a medianoche **local**.
  *
  * Hace falta para los componentes de calendario, que trabajan con `Date`.

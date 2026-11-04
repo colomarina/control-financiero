@@ -12,6 +12,7 @@ import {
   mesesAnteriores,
   nombreMes,
   fechaCorta,
+  fechaLarga,
   aFechaLocal,
   desdeFechaLocal,
 } from './fechas'
@@ -146,6 +147,18 @@ describe('fechaCorta', () => {
   it('rechaza una fecha mal formada', () => {
     expect(() => fechaCorta('2026-9-5')).toThrow()
     expect(() => fechaCorta('')).toThrow()
+  })
+})
+
+describe('fechaLarga', () => {
+  it('arma la fecha en palabras', () => {
+    expect(fechaLarga('2026-09-15')).toBe('15 de septiembre de 2026')
+    expect(fechaLarga('2026-01-01')).toBe('1 de enero de 2026')
+    expect(fechaLarga('2026-12-31')).toBe('31 de diciembre de 2026')
+  })
+
+  it('rechaza una fecha mal formada', () => {
+    expect(() => fechaLarga('15/09/2026')).toThrow()
   })
 })
 
