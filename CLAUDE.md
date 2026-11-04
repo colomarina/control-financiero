@@ -297,10 +297,26 @@ manda el gasto al día siguiente.
     el buscador**: al cerrarse se desmonta y se perderían los filtros puestos.
 - **Íconos**: `components/Icono.tsx` (Material Symbols Outlined). La fuente se carga
   por stylesheet en `app/layout.tsx` porque no está en `next/font/google`.
-- **shadcn**: solo queda `components/ui/sonner.tsx` (los toasts). Los campos y botones
-  se componen con tokens nuestros, que es lo que habilita la regla 5 de arriba. Para
-  sumar un componente: `npx shadcn@latest add <nombre>` — el puente de variables ya
-  está hecho, así que hereda la paleta solo.
+- **shadcn**: de la librería quedan cuatro componentes en `components/ui/` —`sonner`
+  (los toasts), `popover`, `calendar` y `button`—. Los campos y botones del resto se
+  componen con tokens nuestros, que es lo que habilita la regla 5 de arriba. Para sumar
+  un componente: `npx shadcn@latest add <nombre>` — el puente de variables ya está
+  hecho, así que hereda la paleta solo.
+  - **El paquete `shadcn` no está instalado, y no hay que instalarlo.** Lo único que
+    lo pedía era un `@import "shadcn/tailwind.css"` en `globals.css`: 637 líneas de
+    las que esta app usa nueve variantes `@custom-variant data-*`, hoy copiadas al
+    propio `globals.css`. El paquete arrastraba el SDK de MCP (con Express adentro),
+    dotenvx y systeminformation —18 vulnerabilidades, todas en código que esta app no
+    ejecuta jamás—. El CLI se corre con `npx`, que no instala nada.
+  - Si un componente nuevo pide una variante `data-*` que no está, copiarla de
+    `shadcn/dist/tailwind.css` al bloque de `globals.css`, no volver a traer el import.
+    Lo que no se copió es `scroll-fade`, `shimmer` y `no-scrollbar`.
+  - **`overrides` en `package.json`**: `@typescript-eslint/typescript-estree` pide
+    `minimatch ^10.2.2` y toda la 10.x tiene un advisory de DoS por globs. El override
+    lo sube a `^11.0.4`. La alternativa que ofrecía `npm audit fix --force` era bajar
+    `eslint-config-next` a 15.5.29, que deshacía el parche de seguridad de Next y lo
+    dejaba desalineado con `next`. Si algún día typescript-estree acepta la 11 por su
+    cuenta, el override sobra.
 - **Next 16**: `middleware` se llama `proxy` (`proxy.ts` en la raíz). Cache Components
   está apagado a propósito para que valga el flujo clásico con `revalidatePath`.
 - **Un solo umbral de semáforo**: `config.umbral_cerca_pct` (default 85). El Excel

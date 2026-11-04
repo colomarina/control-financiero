@@ -1,8 +1,83 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-@import "shadcn/tailwind.css";
 
 @custom-variant dark (&:is(.dark *));
+
+/* ---------------------------------------------------------------------------
+   Variantes `data-*` de shadcn.
+
+   Antes venían de `@import "shadcn/tailwind.css"`, y ese import era la única
+   razón por la que el paquete `shadcn` estaba instalado. Son 637 líneas de las
+   que acá se usan estas: `components/ui/popover.tsx` anima con `data-open:` y
+   `data-closed:`, y el popover es el que abre `CampoSelect` y `CampoFecha`. El
+   resto —scroll-fade, shimmer, no-scrollbar— no lo toca nadie.
+
+   El paquete arrastraba un árbol enorme (el SDK de MCP con Express adentro,
+   dotenvx, systeminformation) con 18 vulnerabilidades, todas por dependencias
+   que esta app no ejecuta nunca. Copiadas las variantes, el paquete se fue.
+
+   Están las nueve y no solo las dos en uso: son baratas, y un componente que
+   se agregue con `npx shadcn@latest add` probablemente use alguna.
+   --------------------------------------------------------------------------- */
+@custom-variant data-open {
+  &:where([data-state="open"]),
+  &:where([data-open]:not([data-open="false"])) {
+    @slot;
+  }
+}
+
+@custom-variant data-closed {
+  &:where([data-state="closed"]),
+  &:where([data-closed]:not([data-closed="false"])) {
+    @slot;
+  }
+}
+
+@custom-variant data-checked {
+  &:where([data-state="checked"]),
+  &:where([data-checked]:not([data-checked="false"])) {
+    @slot;
+  }
+}
+
+@custom-variant data-unchecked {
+  &:where([data-state="unchecked"]),
+  &:where([data-unchecked]:not([data-unchecked="false"])) {
+    @slot;
+  }
+}
+
+@custom-variant data-selected {
+  &:where([data-selected="true"]) {
+    @slot;
+  }
+}
+
+@custom-variant data-disabled {
+  &:where([data-disabled="true"]),
+  &:where([data-disabled]:not([data-disabled="false"])) {
+    @slot;
+  }
+}
+
+@custom-variant data-active {
+  &:where([data-state="active"]),
+  &:where([data-active]:not([data-active="false"])) {
+    @slot;
+  }
+}
+
+@custom-variant data-horizontal {
+  &:where([data-orientation="horizontal"]) {
+    @slot;
+  }
+}
+
+@custom-variant data-vertical {
+  &:where([data-orientation="vertical"]) {
+    @slot;
+  }
+}
 
 /* ===========================================================================
    DESIGN SYSTEM — Control Financiero
