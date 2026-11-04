@@ -14,6 +14,7 @@ import {
   planesActivos,
   proximosMeses,
   resumenPlan,
+  rutaDeMovimiento,
 } from './cuotas'
 
 const ID = {
@@ -188,5 +189,16 @@ describe('totalPlan y mesFinal', () => {
 describe('esCuota', () => {
   it('un movimiento real no es una cuota', () => {
     expect(esCuota(mov())).toBe(false)
+  })
+})
+
+describe('rutaDeMovimiento', () => {
+  it('un movimiento real navega a su propia pantalla', () => {
+    const m = mov()
+    expect(rutaDeMovimiento(m)).toBe(`/movimiento/${m.id}`)
+  })
+  it('una cuota navega a la compra que la generó, no a /movimiento/[id]', () => {
+    const [c] = cuotasDelMes([compra()], '2026-11')
+    expect(rutaDeMovimiento(c)).toBe(`/compra/${ID.a}`)
   })
 })

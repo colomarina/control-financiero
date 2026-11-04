@@ -32,6 +32,20 @@ export function esCuota(m: MovimientoDetalle): m is Cuota {
 }
 
 /**
+ * A qué pantalla navega al tocar `m`: la compra que la generó si es una
+ * cuota derivada, el movimiento real si no. Una cuota tiene `id` sintético
+ * (`cuota:<compraId>:<numero>`) y nunca es una fila de `/movimiento/[id]`
+ * —ni existe ahí, ni es un uuid—. Vive acá, pura y con test, porque la
+ * deciden dos listas distintas (`ListaMovimientos` en el Home,
+ * `BuscadorMovimientos` en el Historial) y las dos tienen que llevar al
+ * mismo lugar al tocar la misma fila: que una duplicara esta cuenta y la
+ * otra no es justo el bug que hay que no volver a tener.
+ */
+export function rutaDeMovimiento(m: MovimientoDetalle): string {
+  return esCuota(m) ? `/compra/${m.cuota.compraId}` : `/movimiento/${m.id}`
+}
+
+/**
  * Qué número de cuota (1-based) le toca a `compra` en `mes`, o `null` si ese
  * mes queda antes de la compra o después de la última cuota.
  */
