@@ -92,6 +92,23 @@ export function sumarMeses(mes: Mes, n: number): Mes {
 }
 
 /**
+ * Meses de `desde` a `hasta`. Negativo si `hasta` es anterior a `desde`.
+ * `mesesEntre("2026-01", "2026-03")` -> 2. `mesesEntre("2026-11", "2026-09")` -> -2.
+ */
+export function mesesEntre(desde: Mes, hasta: Mes): number {
+  return indiceDeMes(hasta) - indiceDeMes(desde)
+}
+
+/** `"2026-03"` -> `2026 * 12 + 2`. El índice absoluto que usan `sumarMeses` y `mesesEntre`. */
+function indiceDeMes(mes: Mes): number {
+  const m = RE_MES.exec(mes)
+  if (!m) throw new Error(`Mes inválido: ${mes}. Se espera "YYYY-MM".`)
+  const nroMes = Number(m[2])
+  if (nroMes < 1 || nroMes > 12) throw new Error(`Mes inválido: ${mes}. Se espera "YYYY-MM".`)
+  return Number(m[1]) * 12 + (nroMes - 1)
+}
+
+/**
  * Los `n` meses anteriores a `mes`, del más viejo al más nuevo.
  * `mesesAnteriores("2026-03", 2)` -> `["2026-01", "2026-02"]`.
  */

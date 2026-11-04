@@ -8,6 +8,7 @@ import {
   diaActual,
   diaDe,
   sumarMeses,
+  mesesEntre,
   mesesAnteriores,
   nombreMes,
   fechaCorta,
@@ -93,6 +94,26 @@ describe('sumarMeses', () => {
 
   it('es identidad con 0', () => {
     expect(sumarMeses('2026-07', 0)).toBe('2026-07')
+  })
+})
+
+describe('mesesEntre', () => {
+  it('cuenta los meses entre dos meses del mismo año', () => {
+    expect(mesesEntre('2026-11', '2026-11')).toBe(0)
+    expect(mesesEntre('2026-01', '2026-03')).toBe(2)
+  })
+
+  it('cruza el año', () => {
+    expect(mesesEntre('2026-11', '2027-10')).toBe(11)
+  })
+
+  it('es negativo hacia atrás', () => {
+    expect(mesesEntre('2026-11', '2026-09')).toBe(-2)
+  })
+
+  it('rechaza un mes mal formado', () => {
+    expect(() => mesesEntre('2026-13', '2026-11')).toThrow()
+    expect(() => mesesEntre('2026-11', 'noviembre')).toThrow()
   })
 })
 
