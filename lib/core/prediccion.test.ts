@@ -1,7 +1,10 @@
 import { describe, it, expect } from 'vitest'
 import type { MovimientoDetalle } from '@/lib/schemas/movimiento'
+import type { CompraCuotasDetalle } from '@/lib/schemas/compraCuotas'
+import type { GastoFijoDetalle } from '@/lib/schemas/gastoFijo'
 import {
   FACTOR_ESCENARIO,
+  gastoNoVariable,
   tasaVariableDiaria,
   promedioHistoricoDiario,
   tasaDiariaAplicable,
@@ -9,6 +12,8 @@ import {
   margenDisponible,
   superaElTope,
 } from './prediccion'
+import { cuotasEntre, cuotasDelMes } from './cuotas'
+import { gastoContraTope } from './gastos'
 
 let n = 0
 function mov(p: Partial<MovimientoDetalle> = {}): MovimientoDetalle {
@@ -24,6 +29,26 @@ function mov(p: Partial<MovimientoDetalle> = {}): MovimientoDetalle {
     nota: null,
     comercio: 'Coto',
     categoria: 'Supermercado',
+    subcategoria: null,
+    esFijo: false,
+    ...p,
+  }
+}
+
+// Fixture de una compra en cuotas: ids fijos, números redondos.
+function compra(p: Partial<CompraCuotasDetalle> = {}): CompraCuotasDetalle {
+  return {
+    id: '00000000-0000-4000-8000-000000000050',
+    fecha: '2026-11-03',
+    comercioId: '00000000-0000-4000-8000-000000000001',
+    importeCuotaCentavos: 48_500,
+    cuotas: 12,
+    formaPago: 'tarjeta_credito',
+    banco: null,
+    tarjeta: null,
+    nota: null,
+    comercio: 'Asistencia',
+    categoria: 'Seguros',
     subcategoria: null,
     esFijo: false,
     ...p,
@@ -76,6 +101,109 @@ describe('promedioHistoricoDiario', () => {
   it('puede medir el ritmo del otro tope', () => {
     // 900.000 en efectivo en agosto (31 días)
     expect(promedioHistoricoDiario(movs, '2026-09', 1, 'efectivo')).toBeCloseTo(900_000 / 31, 6)
+  })
+})
+
+describe('promedioHistoricoDiario con cuotas', () => {
+  it('no cuenta las cuotas de los meses viejos en el ritmo variable', () => {
+    const variables = [
+      mov({ fecha: '2026-09-10', importeCentavos: 300_000 }),
+      mov({ fecha: '2026-10-10', importeCentavos: 600_000 }),
+    ]
+    // Compra de agosto en 6 cuotas: a la altura de noviembre ya dejó una
+    // cuota en septiembre y otra en octubre, cada una de 50.000.
+    const compraVieja = compra({ fecha: '2026-08-15', importeCuotaCentavos: 50_000, cuotas: 6 })
+
+    const sinCuotas = promedioHistoricoDiario(variables, '2026-11', 2, 'tarjeta')
+    const conCuotas = promedioHistoricoDiario(
+      [...variables, ...cuotasEntre([compraVieja], '2026-09', '2026-10')],
+      '2026-11', 2, 'tarjeta',
+    )
+    expect(conCuotas).toBe(sinCuotas)
+  })
+})
+
+// El doble descuento: contar la cuota de un comercio fijo como fijo ya pagado
+// Y como cuota del mes hunde la tasa variable sin que nada falle.
+describe('el ritmo variable con una cuota de un comercio fijo', () => {
+  it('descuenta la cuota una sola vez', () => {
+    const comercioFijo = '00000000-0000-4000-8000-000000000002'
+    const comercioVariable = '00000000-0000-4000-8000-000000000003'
+
+    const fijos: GastoFijoDetalle[] = [
+      {
+        id: '00000000-0000-4000-8000-000000000060',
+        comercioId: comercioFijo,
+        estimadoCentavos: 90_000,
+        pagosEsperados: 1,
+        vencimiento: null,
+        activo: true,
+        comercio: 'Prepaga',
+      },
+    ]
+
+    // La factura real de noviembre del fijo, más un gasto variable cualquiera.
+    const movsReales = [
+      mov({
+        comercioId: comercioFijo, fecha: '2026-11-05', importeCentavos: 85_000,
+        esFijo: true, formaPago: 'debito_automatico',
+      }),
+      mov({ comercioId: comercioVariable, fecha: '2026-11-07', importeCentavos: 123_000, esFijo: false }),
+    ]
+
+    // El mismo comercio tiene además un plan en cuotas (p.ej. algo financiado
+    // por la prepaga): la cuota de noviembre es un movimiento aparte de la
+    // factura mensual.
+    const compraDeComercioFijo = compra({
+      comercioId: comercioFijo, fecha: '2026-11-03', importeCuotaCentavos: 40_000,
+      cuotas: 3, esFijo: true, comercio: 'Prepaga',
+    })
+    const cuotas = cuotasDelMes([compraDeComercioFijo], '2026-11')
+    const mezclados = [...movsReales, ...cuotas]
+
+    const gastadoReal = gastoContraTope(mezclados, '2026-11', 'tarjeta')
+    const noVariable = gastoNoVariable(fijos, movsReales, cuotas, '2026-11', 'tarjeta')
+
+    // gastadoReal = 85.000 (factura) + 123.000 (variable) + 40.000 (cuota) = 248.000
+    // noVariable  = 85.000 (fijo ya pagado, de movsReales) + 40.000 (cuota) = 125.000
+    // La resta da justo el gasto variable real (123.000): la cuota no se contó dos veces.
+    expect(tasaVariableDiaria({ gastadoReal, fijosYaPagados: noVariable, diaActual: 10 }))
+      .toBe(12_300)
+  })
+
+  // El seguro de adentro: `fijos.ts` descarta las cuotas por su cuenta, así
+  // que ni siquiera pasándole la lista mezclada se puede contar dos veces.
+  it('da lo mismo aunque le pasen la lista mezclada', () => {
+    const comercioFijo = '00000000-0000-4000-8000-000000000002'
+
+    const fijos: GastoFijoDetalle[] = [
+      {
+        id: '00000000-0000-4000-8000-000000000061',
+        comercioId: comercioFijo,
+        estimadoCentavos: 90_000,
+        pagosEsperados: 1,
+        vencimiento: null,
+        activo: true,
+        comercio: 'Prepaga',
+      },
+    ]
+
+    const movsReales = [
+      mov({
+        comercioId: comercioFijo, fecha: '2026-11-05', importeCentavos: 85_000,
+        esFijo: true, formaPago: 'debito_automatico',
+      }),
+    ]
+    const cuotas = cuotasDelMes(
+      [compra({
+        comercioId: comercioFijo, fecha: '2026-11-03', importeCuotaCentavos: 40_000,
+        cuotas: 3, esFijo: true, comercio: 'Prepaga',
+      })],
+      '2026-11',
+    )
+
+    expect(gastoNoVariable(fijos, [...movsReales, ...cuotas], cuotas, '2026-11', 'tarjeta'))
+      .toBe(gastoNoVariable(fijos, movsReales, cuotas, '2026-11', 'tarjeta'))
   })
 })
 

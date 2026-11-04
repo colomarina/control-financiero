@@ -12,10 +12,11 @@ import {
 } from '@/lib/core/filtros'
 import { formatoARS } from '@/lib/core/dinero'
 import { fechaCorta, type Mes } from '@/lib/core/fechas'
+import { rutaDeMovimiento } from '@/lib/core/cuotas'
 import { ETIQUETA_FORMA_PAGO, type MovimientoDetalle } from '@/lib/schemas/movimiento'
 import { Card, ItemLista, Separador, Monto } from '@/components/ds'
 import { FiltrosMovimientos } from '@/components/FiltrosMovimientos'
-import { iconoDe } from '@/components/ListaMovimientos'
+import { iconoDe, TituloMovimiento } from '@/components/ListaMovimientos'
 
 /** Cuántos resultados se dibujan. Más que esto no se lee, se scrollea. */
 const TOPE_VISIBLE = 50
@@ -81,9 +82,12 @@ export function BuscadorMovimientos({
           {filtrados.slice(0, TOPE_VISIBLE).map((m, i) => (
             <div key={m.id}>
               {i > 0 && <Separador />}
-              {/* Tocar un resultado lo abre para editar o borrar. */}
+              {/* Tocar un resultado lo abre para editar o borrar. `rutaDeMovimiento`
+                  y `TituloMovimiento` son los mismos que usa `ListaMovimientos`:
+                  una cuota tiene que llevar al mismo lugar y verse igual en las
+                  dos pantallas. */}
               <Link
-                href={`/movimiento/${m.id}`}
+                href={rutaDeMovimiento(m)}
                 // `active:` y no solo `hover:`: en el celular no hay hover, y
                 // el destello al tocar es lo único que confirma el toque antes
                 // de que aparezca el esqueleto de la otra pantalla.
@@ -92,7 +96,7 @@ export function BuscadorMovimientos({
                 <ItemLista
                   icono={iconoDe(m.categoria)}
                   tonoIcono={m.esFijo ? 'neutro' : 'ok'}
-                  titulo={m.comercio}
+                  titulo={<TituloMovimiento m={m} />}
                   detalle={`${fechaCorta(m.fecha)} · ${m.categoria} · ${ETIQUETA_FORMA_PAGO[m.formaPago]}`}
                   derecha={<Monto>{formatoARS(m.importeCentavos)}</Monto>}
                 />

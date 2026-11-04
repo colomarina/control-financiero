@@ -92,6 +92,23 @@ export function sumarMeses(mes: Mes, n: number): Mes {
 }
 
 /**
+ * Meses de `desde` a `hasta`. Negativo si `hasta` es anterior a `desde`.
+ * `mesesEntre("2026-01", "2026-03")` -> 2. `mesesEntre("2026-11", "2026-09")` -> -2.
+ */
+export function mesesEntre(desde: Mes, hasta: Mes): number {
+  return indiceDeMes(hasta) - indiceDeMes(desde)
+}
+
+/** `"2026-03"` -> `2026 * 12 + 2`. El índice absoluto que usan `sumarMeses` y `mesesEntre`. */
+function indiceDeMes(mes: Mes): number {
+  const m = RE_MES.exec(mes)
+  if (!m) throw new Error(`Mes inválido: ${mes}. Se espera "YYYY-MM".`)
+  const nroMes = Number(m[2])
+  if (nroMes < 1 || nroMes > 12) throw new Error(`Mes inválido: ${mes}. Se espera "YYYY-MM".`)
+  return Number(m[1]) * 12 + (nroMes - 1)
+}
+
+/**
  * Los `n` meses anteriores a `mes`, del más viejo al más nuevo.
  * `mesesAnteriores("2026-03", 2)` -> `["2026-01", "2026-02"]`.
  */
@@ -120,6 +137,17 @@ export function fechaCorta(fecha: FechaISO): string {
   const m = RE_FECHA.exec(fecha)
   if (!m) throw new Error(`Fecha inválida: ${fecha}. Se espera "YYYY-MM-DD".`)
   return `${m[3]}/${m[2]}/${m[1].slice(2)}`
+}
+
+/**
+ * Fecha larga para un encabezado: `"2026-09-15"` -> `"15 de septiembre de 2026"`.
+ * Para un título, no para una lista: ahí va `fechaCorta`.
+ */
+export function fechaLarga(fecha: FechaISO): string {
+  const m = RE_FECHA.exec(fecha)
+  if (!m) throw new Error(`Fecha inválida: ${fecha}. Se espera "YYYY-MM-DD".`)
+  const nombreDelMes = NOMBRES[Number(m[2]) - 1].toLowerCase()
+  return `${Number(m[3])} de ${nombreDelMes} de ${m[1]}`
 }
 
 /**

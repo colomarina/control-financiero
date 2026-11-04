@@ -5,18 +5,12 @@ import { revalidatePath } from 'next/cache'
 import { nuevoMovimientoSchema } from '@/lib/schemas/movimiento'
 import { crearMovimiento, borrarMovimiento, actualizarMovimiento } from '@/lib/db/movimientos'
 import { parsearImporte } from '@/lib/core/dinero'
+import { texto } from '@/lib/formData'
 
 export type EstadoForm =
   | { ok: true; mensaje: string }
   | { ok: false; error: string }
   | null
-
-function texto(fd: FormData, campo: string): string | null {
-  const v = fd.get(campo)
-  if (typeof v !== 'string') return null
-  const limpio = v.trim()
-  return limpio === '' ? null : limpio
-}
 
 export async function guardarMovimiento(
   _estado: EstadoForm,

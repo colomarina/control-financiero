@@ -8,9 +8,11 @@ import {
   diaActual,
   diaDe,
   sumarMeses,
+  mesesEntre,
   mesesAnteriores,
   nombreMes,
   fechaCorta,
+  fechaLarga,
   aFechaLocal,
   desdeFechaLocal,
 } from './fechas'
@@ -96,6 +98,26 @@ describe('sumarMeses', () => {
   })
 })
 
+describe('mesesEntre', () => {
+  it('cuenta los meses entre dos meses del mismo año', () => {
+    expect(mesesEntre('2026-11', '2026-11')).toBe(0)
+    expect(mesesEntre('2026-01', '2026-03')).toBe(2)
+  })
+
+  it('cruza el año', () => {
+    expect(mesesEntre('2026-11', '2027-10')).toBe(11)
+  })
+
+  it('es negativo hacia atrás', () => {
+    expect(mesesEntre('2026-11', '2026-09')).toBe(-2)
+  })
+
+  it('rechaza un mes mal formado', () => {
+    expect(() => mesesEntre('2026-13', '2026-11')).toThrow()
+    expect(() => mesesEntre('2026-11', 'noviembre')).toThrow()
+  })
+})
+
 describe('mesesAnteriores', () => {
   it('devuelve los n meses previos, del más viejo al más nuevo', () => {
     expect(mesesAnteriores('2026-03', 3)).toEqual(['2025-12', '2026-01', '2026-02'])
@@ -125,6 +147,18 @@ describe('fechaCorta', () => {
   it('rechaza una fecha mal formada', () => {
     expect(() => fechaCorta('2026-9-5')).toThrow()
     expect(() => fechaCorta('')).toThrow()
+  })
+})
+
+describe('fechaLarga', () => {
+  it('arma la fecha en palabras', () => {
+    expect(fechaLarga('2026-09-15')).toBe('15 de septiembre de 2026')
+    expect(fechaLarga('2026-01-01')).toBe('1 de enero de 2026')
+    expect(fechaLarga('2026-12-31')).toBe('31 de diciembre de 2026')
+  })
+
+  it('rechaza una fecha mal formada', () => {
+    expect(() => fechaLarga('15/09/2026')).toThrow()
   })
 })
 

@@ -1,7 +1,10 @@
 import type { MovimientoDetalle } from '@/lib/schemas/movimiento'
+import type { GastoFijoDetalle } from '@/lib/schemas/gastoFijo'
 import { diasDelMes, mesesAnteriores, type Mes } from './fechas'
-import { TOPE_DE_FORMA_PAGO, movimientosDelMes } from './gastos'
+import { TOPE_DE_FORMA_PAGO, movimientosDelMes, gastoContraTope } from './gastos'
+import { fijosYaPagados } from './fijos'
 import { sumar } from './dinero'
+import { esCuota, type Cuota } from './cuotas'
 
 /**
  * MÉTODO B+E — cierre estimado del mes.
@@ -13,9 +16,12 @@ import { sumar } from './dinero'
  *
  *   cierre = B + E × factor del escenario
  *
- * El ritmo variable sale de descontarle a lo gastado los fijos ya pagados:
- * los fijos no se repiten, así que proyectarlos como si fueran gasto diario
- * infla la estimación.
+ * El ritmo variable sale de descontarle a lo gastado los fijos ya pagados y
+ * las cuotas del mes: ni unos ni otras se repiten, así que proyectarlos como
+ * si fueran gasto diario infla la estimación. Una cuota en particular es
+ * plata grande y de una sola vez —una compra puntual, financiada— que no
+ * dice nada sobre cuánto gastás por día; dejarla en el ritmo variable
+ * convierte un pico de un día en un "todos los días gastás así".
  *
  * Diferencia con el Excel (a propósito): el Excel proyecta desde el día 1, y
  * con dos días de datos el ritmo diario es ruido puro. Acá, antes de
@@ -33,11 +39,42 @@ export const FACTOR_ESCENARIO = {
 export type Escenario = keyof typeof FACTOR_ESCENARIO
 
 /**
+ * Lo ya gastado del mes que **no es variable**: los fijos ya pagados más las
+ * cuotas del mes, todo contra el mismo `tope`. Es lo que hay que descontarle
+ * al gastado para que quede el ritmo del día a día.
+ *
+ * Es la **unión** de esos dos conjuntos de movimientos, no la suma de dos
+ * listas que pueden superponerse: si un comercio es fijo y además tiene una
+ * compra en cuotas, contar la cuota de los dos lados la descuenta dos veces y
+ * la tasa se hunde (en el peor caso a cero) sin que nada falle. Por eso acá
+ * `fijosYaPagados` recibe `movsReales`, y por eso además `fijos.ts` descarta
+ * las cuotas por su cuenta: con las dos cosas, los dos sumandos son disjuntos
+ * aunque a esta función le llegue la lista mezclada.
+ *
+ * Vive acá y no en la página para que el test de esta regla pruebe el código
+ * que la página efectivamente corre: componerla a mano en el Home dejaba al
+ * test copiando la cuenta en vez de llamarla, y cualquier cambio en la página
+ * pasaba en verde.
+ */
+export function gastoNoVariable(
+  fijos: GastoFijoDetalle[],
+  movsReales: MovimientoDetalle[],
+  cuotasMes: Cuota[],
+  mes: Mes,
+  tope: 'tarjeta' | 'efectivo',
+): number {
+  return fijosYaPagados(fijos, movsReales, mes, tope) + gastoContraTope(cuotasMes, mes, tope)
+}
+
+/**
  * El ritmo de gasto variable por día en lo que va del mes.
  *
  * `fijosYaPagados` tiene que venir filtrado por el MISMO tope que `gastadoReal`
  * (el Excel no lo hacía: restaba fijos pagados por transferencia del gasto de
  * tarjeta, y el ritmo salía bajo o negativo).
+ *
+ * A pesar del nombre, lo que se le pasa en `fijosYaPagados` es "lo ya gastado
+ * que no es variable": lo que devuelve `gastoNoVariable`, fijos más cuotas.
  *
  * Nunca devuelve negativo: si pagaste más fijos que gasto total, el ritmo es 0.
  */
@@ -57,6 +94,9 @@ export function tasaVariableDiaria(args: {
  * Sirve para el arranque del mes, cuando todavía no hay suficientes días para
  * que el ritmo propio signifique algo. Solo promedia los meses que tuvieron
  * movimientos: un mes vacío bajaría el promedio sin motivo.
+ *
+ * Igual que con el ritmo del mes en curso, las cuotas de esos meses viejos
+ * quedan afuera: son el mismo pico puntual de siempre, solo que ya pasado.
  */
 export function promedioHistoricoDiario(
   movs: MovimientoDetalle[],
@@ -70,7 +110,7 @@ export function promedioHistoricoDiario(
     if (delMes.length === 0) continue
     const variable = sumar(
       ...delMes
-        .filter((m) => !m.esFijo && TOPE_DE_FORMA_PAGO[m.formaPago] === tope)
+        .filter((m) => !m.esFijo && !esCuota(m) && TOPE_DE_FORMA_PAGO[m.formaPago] === tope)
         .map((m) => m.importeCentavos),
     )
     tasas.push(variable / diasDelMes(mes))

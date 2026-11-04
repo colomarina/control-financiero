@@ -1,8 +1,9 @@
 import Link from 'next/link'
 import { formatoARS } from '@/lib/core/dinero'
 import { diaDe } from '@/lib/core/fechas'
+import { esCuota, rutaDeMovimiento } from '@/lib/core/cuotas'
 import { ETIQUETA_FORMA_PAGO, type MovimientoDetalle } from '@/lib/schemas/movimiento'
-import { Card, ItemLista, Separador, Monto } from '@/components/ds'
+import { Card, ItemLista, Separador, Monto, Badge } from '@/components/ds'
 
 /**
  * Ícono por categoría. Material Symbols, como pide el design system.
@@ -32,6 +33,27 @@ export function iconoDe(categoria: string): string {
   return ICONO_CATEGORIA[categoria] ?? 'payments'
 }
 
+/**
+ * El título de una fila: el comercio solo, o con el badge "n/total" delante
+ * cuando `m` es una cuota derivada. La comparten esta lista (Home) y
+ * `BuscadorMovimientos` (Historial): que una cuota muestre su número es
+ * parte de identificarla, no un detalle de una sola pantalla — las dos
+ * tienen que verse igual.
+ */
+export function TituloMovimiento({ m }: { m: MovimientoDetalle }) {
+  if (!esCuota(m)) return m.comercio
+
+  const { numero, total } = m.cuota
+  return (
+    <span className="gap-space-xs flex min-w-0 items-center">
+      <Badge tono={numero === total ? 'atencion' : 'neutro'}>
+        {numero}/{total}
+      </Badge>
+      <span className="truncate">{m.comercio}</span>
+    </span>
+  )
+}
+
 /** La lista del Home: qué, dónde y cuánto, agrupado por día. */
 export function ListaMovimientos({ movimientos }: { movimientos: MovimientoDetalle[] }) {
   const porDia = new Map<string, MovimientoDetalle[]>()
@@ -55,7 +77,7 @@ export function ListaMovimientos({ movimientos }: { movimientos: MovimientoDetal
                 {i > 0 && <Separador />}
                 {/* Tocar un movimiento lo abre para editar o borrar. */}
                 <Link
-                  href={`/movimiento/${m.id}`}
+                  href={rutaDeMovimiento(m)}
                   // `active:` y no solo `hover:`: en el celular no hay hover, y
                   // el destello al tocar es lo único que confirma el toque
                   // antes de que aparezca el esqueleto de la otra pantalla.
@@ -64,7 +86,7 @@ export function ListaMovimientos({ movimientos }: { movimientos: MovimientoDetal
                   <ItemLista
                     icono={iconoDe(m.categoria)}
                     tonoIcono={m.esFijo ? 'neutro' : 'ok'}
-                    titulo={m.comercio}
+                    titulo={<TituloMovimiento m={m} />}
                     detalle={`${m.categoria}${m.subcategoria ? ` · ${m.subcategoria}` : ''} · ${ETIQUETA_FORMA_PAGO[m.formaPago]}`}
                     derecha={<Monto>{formatoARS(m.importeCentavos)}</Monto>}
                   />

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import type { GastoFijoDetalle } from '@/lib/schemas/gastoFijo'
 import type { MovimientoDetalle } from '@/lib/schemas/movimiento'
 import { checklistFijos, fijosPendientes, fijosYaPagados, contadorFijos } from './fijos'
+import { cuotasDelMes } from './cuotas'
 
 const ID = {
   prepaga: '00000000-0000-4000-8000-000000000001',
@@ -199,5 +200,46 @@ describe('contadorFijos', () => {
   it('cuenta cada estado', () => {
     expect(contadorFijos(fijos, movs, '2026-09'))
       .toEqual({ pagados: 1, parciales: 1, pendientes: 1 })
+  })
+})
+
+describe('las cuotas derivadas no son facturas', () => {
+  // Una compra en cuotas de un comercio marcado como fijo: la cuota de
+  // septiembre cae en el mismo mes que la factura que se está esperando.
+  // Contarla marcaría la Luz como pagada sin que llegara ninguna boleta —no
+  // rompe nada, solo miente—, así que `fijos.ts` la descarta por su cuenta.
+  const cuotasDeLuz = cuotasDelMes(
+    [{
+      id: '00000000-0000-4000-8000-0000000000c1',
+      fecha: '2026-09-03',
+      comercioId: ID.luz,
+      importeCuotaCentavos: 330_000,
+      cuotas: 6,
+      formaPago: 'tarjeta_credito',
+      banco: null,
+      tarjeta: null,
+      nota: null,
+      comercio: 'Luz',
+      categoria: 'Servicios',
+      subcategoria: null,
+      esFijo: true,
+    }],
+    '2026-09',
+  )
+  const mezclados = [...movs, ...cuotasDeLuz]
+
+  it('no dan por llegada una factura en el checklist', () => {
+    expect(luzDe(mezclados)).toEqual(luzDe(movs))
+    expect(luzDe(mezclados).estado).toBe('pendiente')
+  })
+
+  it('no entran en los fijos ya pagados', () => {
+    expect(fijosYaPagados(fijos, mezclados, '2026-09', 'tarjeta'))
+      .toBe(fijosYaPagados(fijos, movs, '2026-09', 'tarjeta'))
+  })
+
+  it('no mueven ni el contador ni lo que falta pagar', () => {
+    expect(contadorFijos(fijos, mezclados, '2026-09')).toEqual(contadorFijos(fijos, movs, '2026-09'))
+    expect(fijosPendientes(fijos, mezclados, '2026-09')).toBe(fijosPendientes(fijos, movs, '2026-09'))
   })
 })

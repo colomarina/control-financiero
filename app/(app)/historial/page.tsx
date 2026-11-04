@@ -1,6 +1,8 @@
 import { getMovimientosDesde } from '@/lib/db/movimientos'
+import { getComprasEnCuotas } from '@/lib/db/cuotas'
 import { getConfig } from '@/lib/db/config'
 import { mesActual, nombreMes } from '@/lib/core/fechas'
+import { cuotasEntre } from '@/lib/core/cuotas'
 import {
   resumenMensual,
   promedioMensual,
@@ -40,14 +42,25 @@ export default async function HistorialPage() {
   const config = await getConfig()
 
   // Todo el histórico: son pocos cientos de filas, entra de una.
-  const movs = await getMovimientosDesde('2000-01')
+  const [movs, compras] = await Promise.all([
+    getMovimientosDesde('2000-01'),
+    getComprasEnCuotas(),
+  ])
 
-  const filas = resumenMensual(movs, {
+  // Las cuotas entran hasta `mes` y ni uno más. Sin el corte, el mes a mes
+  // listaría hasta la última cuota del plan más largo y, peor, `promedioMensual`
+  // promediaría esos meses futuros como CERRADOS —solo excluye el que viene
+  // marcado `enCurso`—, así que el "Promedio mensual" de portada quedaría mal
+  // y el gráfico de evolución dibujaría un futuro que todavía no pasó. Lo que
+  // viene se mira en Fijos y cuotas, que existe justo para eso.
+  const conCuotas = [...movs, ...cuotasEntre(compras, '2000-01', mes)]
+
+  const filas = resumenMensual(conCuotas, {
     sueldoCentavos: config.sueldoCentavos,
     mesEnCurso: mes,
   })
   const promedio = promedioMensual(filas)
-  const categorias = totalPorCategoria(movs, mesesConDatos(movs))
+  const categorias = totalPorCategoria(conCuotas, mesesConDatos(conCuotas))
   const totalCategorias = [...categorias.values()].reduce((a, b) => a + b, 0)
 
   if (filas.length === 0) {
@@ -82,10 +95,13 @@ export default async function HistorialPage() {
         </Card>
       )}
 
-      <Seccion titulo="Buscar" contador={`${movs.length} movimientos`}>
+      <Seccion titulo="Buscar" contador={`${conCuotas.length} movimientos`}>
         {/* `mesesConDatos` los da del más viejo al más nuevo; en un selector se
             busca primero el mes reciente. */}
-        <BuscadorMovimientos movimientos={movs} meses={[...mesesConDatos(movs)].reverse()} />
+        <BuscadorMovimientos
+          movimientos={conCuotas}
+          meses={[...mesesConDatos(conCuotas)].reverse()}
+        />
       </Seccion>
 
       {/* Con un solo mes no hay evolución que dibujar. */}

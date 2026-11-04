@@ -145,6 +145,34 @@ create unique index if not exists gastos_fijos_user_comercio_uq
 drop table if exists gastos_fijos_pagos;
 
 -- ----------------------------------------------------------------------------
+-- compras_cuotas — una compra en cuotas, guardada una sola vez.
+--
+-- Lo que se guarda es el importe DE LA CUOTA y la cantidad, nunca el total: es
+-- lo que el usuario sabe con certeza ("12 cuotas de $48.500"), y con interés
+-- el total ÷ 12 no coincide con lo que cobran. Las cuotas individuales no son
+-- filas acá: se derivan mes a mes en `lib/core/cuotas.ts`, igual que un gasto
+-- fijo no tiene tabla de tildes y se deriva de los movimientos del mes.
+-- ----------------------------------------------------------------------------
+create table if not exists compras_cuotas (
+  id                      uuid primary key default gen_random_uuid(),
+  user_id                 uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  fecha                   date not null,
+  comercio_id             uuid not null references comercios(id) on delete restrict,
+  importe_cuota_centavos  bigint not null,
+  cuotas                  smallint not null,
+  forma_pago              forma_pago not null,
+  banco                   text,
+  tarjeta                 text,
+  nota                    text,
+  created_at              timestamptz not null default now(),
+  constraint compras_cuotas_importe_positivo check (importe_cuota_centavos > 0),
+  constraint compras_cuotas_cantidad_valida check (cuotas between 2 and 48)
+);
+
+create index if not exists compras_cuotas_user_fecha_ix on compras_cuotas (user_id, fecha desc);
+create index if not exists compras_cuotas_comercio_ix on compras_cuotas (comercio_id);
+
+-- ----------------------------------------------------------------------------
 -- config — los parámetros (hoja "Configuracion"). Una sola fila por usuario.
 -- ----------------------------------------------------------------------------
 create table if not exists config (
@@ -188,16 +216,17 @@ create table if not exists config (
 -- La anon key de Supabase viaja al browser, así que sin RLS la tabla es pública.
 -- Cada fila es visible solo para su dueño.
 -- ============================================================================
-alter table comercios    enable row level security;
-alter table movimientos  enable row level security;
-alter table presupuesto  enable row level security;
-alter table gastos_fijos enable row level security;
-alter table config       enable row level security;
+alter table comercios      enable row level security;
+alter table movimientos    enable row level security;
+alter table presupuesto    enable row level security;
+alter table gastos_fijos   enable row level security;
+alter table config         enable row level security;
+alter table compras_cuotas enable row level security;
 
 do $$
 declare t text;
 begin
-  foreach t in array array['comercios', 'movimientos', 'presupuesto', 'gastos_fijos', 'config']
+  foreach t in array array['comercios', 'movimientos', 'presupuesto', 'gastos_fijos', 'config', 'compras_cuotas']
   loop
     execute format('drop policy if exists %I on %I', t || '_propias', t);
     execute format(
@@ -232,3 +261,29 @@ select
   c.es_fijo
 from movimientos m
 join comercios c on c.id = m.comercio_id;
+
+-- ----------------------------------------------------------------------------
+-- Vista de conveniencia para compras en cuotas, espejo de `movimientos_detalle`.
+-- Resuelve el join con comercios; las cuotas en sí no son filas, las deriva
+-- `lib/core/cuotas.ts` a partir de esta compra.
+-- ----------------------------------------------------------------------------
+create or replace view compras_cuotas_detalle
+with (security_invoker = true) as
+select
+  cc.id,
+  cc.user_id,
+  cc.fecha,
+  cc.importe_cuota_centavos,
+  cc.cuotas,
+  cc.forma_pago,
+  cc.banco,
+  cc.tarjeta,
+  cc.nota,
+  cc.created_at,
+  c.id            as comercio_id,
+  c.nombre        as comercio,
+  c.categoria,
+  c.subcategoria,
+  c.es_fijo
+from compras_cuotas cc
+join comercios c on c.id = cc.comercio_id;

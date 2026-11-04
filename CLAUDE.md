@@ -194,6 +194,44 @@ cierre    = B + E      factores: optimista 0,85 · normal 1,00 · pesimista 1,25
 El ritmo variable diario es `(gastado − fijos ya pagados) / día actual`, contando
 solo lo que pesa contra el mismo tope. Antes de `config.umbral_dia` la predicción
 devuelve `temprano` en lugar de un número: con pocos días el ritmo es ruido.
+Lo que se descuenta ahí no son solo los fijos: es `gastoNoVariable`
+(`prediccion.ts`), la **unión** de fijos ya pagados y cuotas del mes.
+
+**Compras en cuotas — quién recibe las cuotas derivadas y quién no.** Una compra
+en cuotas se guarda **una sola vez** (`compras_cuotas`); las cuotas no se guardan
+nunca: `lib/core/cuotas.ts` las deriva mes a mes y las materializa como objetos
+que cumplen `MovimientoDetalle` más una marca `cuota`. Por eso el resto de
+`lib/core` procesa listas mezcladas sin enterarse. **Qué lista recibe cada
+pantalla es la regla que más caro sale violar en toda la app**: nada falla, nada
+tira error, nada se pone en rojo — simplemente la pantalla informa mal la plata.
+
+| Pantalla | Qué recibe |
+|---|---|
+| Home: topes, lista ordenada, promedio histórico | movimientos **+** cuotas (hasta el mes actual) |
+| Historial: mes a mes, promedio, gráfico, categorías, buscador | movimientos **+** cuotas, **cortando en el mes actual** |
+| Checklist de fijos (`lib/core/fijos.ts`) | **solo movimientos reales** |
+| `/presupuesto` | **solo movimientos reales** |
+| Atajos de comercio en `/cargar` | **solo movimientos reales** |
+
+Cada fila, con su porqué:
+
+- **El Historial corta en el mes actual** porque `promedioMensual` excluye un solo
+  mes, el marcado `enCurso`. Los meses futuros que una compra en cuotas ya tiene
+  comprometidos entrarían al promedio **como meses cerrados**, y el número de
+  portada —el promedio mensual— quedaría mal. El futuro se mira en Fijos y
+  cuotas, que es la pantalla que existe para eso.
+- **El checklist de fijos nunca ve una cuota** porque `checklistFijos` decide que
+  una factura llegó contando cuántos movimientos de ese comercio hay en el mes.
+  Una cuota de un comercio marcado `es_fijo` se contaría como la factura del mes
+  y el fijo figuraría pagado sin que hubiera llegado nada. `fijos.ts` además las
+  descarta en sus propias entradas, así que la regla no depende de que cada
+  pantalla nueva se acuerde de respetarla.
+- **El presupuesto no cuenta cuotas** porque el presupuesto es la plata que el
+  usuario separa a propósito, en efectivo y transferencias —verdulería, gym, la
+  inversión del mes—. Una cuota de tarjeta no es eso.
+- **Los atajos de `/cargar` tampoco**, porque `comerciosFrecuentes` ordena por
+  cantidad de usos: una compra en 12 cuotas se clavaría arriba de la grilla
+  durante un año entero sin que el usuario la haya vuelto a comprar nunca.
 
 **Fechas y zona horaria**: una fecha de movimiento es `"YYYY-MM-DD"` (`date` en
 Postgres), sin hora ni zona. "Hoy" se resuelve siempre con `hoyISO()` /
@@ -353,3 +391,29 @@ plan Free de Supabase no hace backups automáticos.
   - **Al tocar el matcher de `proxy.ts`**, acordarse de que `manifest.webmanifest` y `sw.js`
     tienen que seguir afuera. El navegador los pide por su cuenta —el manifest a veces sin
     cookies— y un redirect al login rompe la instalación.
+- **Compras en cuotas**: la compra se guarda **una sola vez** (`compras_cuotas` + la vista
+  `compras_cuotas_detalle`, DDL en `supabase/schema.sql`) y las cuotas **no se guardan
+  nunca**: las deriva `lib/core/cuotas.ts` mes a mes, materializadas como objetos que cumplen
+  `MovimientoDetalle` más una marca `cuota`. Esa forma es todo el truco: topes, agregados,
+  orden y filtros procesan listas mezcladas sin tocarse. **Qué pantalla recibe la lista
+  mezclada y cuál no es la regla de la tabla de "Reglas del dominio"**, y es la única de esta
+  feature que al violarse informa mal la plata sin que falle nada.
+  - **El stepper de Cuotas vive en el único `FormGasto`**, con la prop `compra` como tercer
+    modo. Mismo motivo que `movimiento`: dos formularios son dos juegos de reglas que se
+    separan con el tiempo. Editando un movimiento suelto el campo directamente no se dibuja
+    —convertir una fila de `movimientos` en una compra es otra operación, no una edición—.
+  - **Editar y borrar significan cosas distintas, y el texto de la pantalla tiene que
+    decirlo.** Bajar un plan de 12 a 3 quiere decir *"lo di de baja, pagué tres"*: las tres
+    que ya pasaron quedan en sus meses para siempre y las nueve que faltaban dejan de
+    aparecer. **Borrar** quiere decir *"lo cargué mal"*: desaparece todo, incluidas las
+    cuotas pasadas. Por eso **no hay estado "cancelado"** — bajar el número ya lo expresa, y
+    lo expresa en términos de lo que realmente pasó.
+  - Y por eso **el piso del campo Cuotas al editar son las ya transcurridas**
+    (`puedeReducirA`, con test): bajar por debajo borraría meses **cerrados** en silencio,
+    cambiándoles el total, el gráfico y el promedio, todo presentado como "una cancelación".
+    El piso se calcula contra el mes actual, así que el mismo plan tiene distinto mínimo en
+    enero y en marzo. El `min` del input es ayuda visual: quien manda es la action.
+  - El detalle del plan es `/compra/[id]`, a donde llevan las cuotas al tocarlas
+    (`rutaDeMovimiento`, puro y con test, porque lo deciden dos listas distintas). Crear,
+    editar o borrar una compra hace `revalidatePath('/', 'layout')`: mueve topes, predicción,
+    fijos e historial de varios meses a la vez.

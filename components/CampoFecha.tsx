@@ -45,16 +45,29 @@ export function CampoFecha({
   name,
   defaultValue,
   etiqueta = 'Fecha',
+  onChange,
 }: {
   name: string
   /** Fecha inicial en formato `"YYYY-MM-DD"`. */
   defaultValue: string
   etiqueta?: string
+  /**
+   * Opcional: se dispara cuando el usuario elige una fecha (calendario o
+   * "Hoy"), no en el montaje. Lo usa `FormGasto` para subir el valor a
+   * estado propio y poder recalcular el resumen de una compra en cuotas.
+   */
+  onChange?: (fecha: string) => void
 }) {
   const [valor, setValor] = useState(defaultValue)
   const [abierto, setAbierto] = useState(false)
 
   const hoy = hoyISO()
+
+  function elegir(fecha: string) {
+    setValor(fecha)
+    setAbierto(false)
+    onChange?.(fecha)
+  }
 
   return (
     <>
@@ -71,22 +84,12 @@ export function CampoFecha({
         </PopoverTrigger>
 
         <PopoverContent className="w-auto p-0" align="start">
-          <CalendarioLazy
-            valor={valor}
-            maximo={hoy}
-            onElegir={(fecha) => {
-              setValor(fecha)
-              setAbierto(false)
-            }}
-          />
+          <CalendarioLazy valor={valor} maximo={hoy} onElegir={elegir} />
 
           <div className="border-outline-variant flex border-t">
             <button
               type="button"
-              onClick={() => {
-                setValor(hoy)
-                setAbierto(false)
-              }}
+              onClick={() => elegir(hoy)}
               className="text-body-sm text-primary p-space-sm w-full text-center"
             >
               Hoy
