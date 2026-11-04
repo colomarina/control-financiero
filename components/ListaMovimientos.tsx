@@ -72,11 +72,11 @@ export function ListaMovimientos({ movimientos }: { movimientos: MovimientoDetal
                       tonoIcono={m.esFijo ? 'neutro' : 'ok'}
                       titulo={
                         c ? (
-                          <span className="gap-space-xs flex items-center">
+                          <span className="gap-space-xs flex min-w-0 items-center">
                             <Badge tono={c.numero === c.total ? 'atencion' : 'neutro'}>
                               {c.numero}/{c.total}
                             </Badge>
-                            {m.comercio}
+                            <span className="truncate">{m.comercio}</span>
                           </span>
                         ) : (
                           m.comercio
