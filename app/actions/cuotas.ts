@@ -59,6 +59,15 @@ export async function guardarCompraEnCuotas(
  * schema no conoce: no se puede bajar el plan por debajo de las cuotas que ya
  * transcurrieron. El `min` del input es solo una ayuda visual —se puede
  * saltear desde las devtools— así que acá, y solo acá, se manda de verdad.
+ *
+ * **Hasta dónde llega esa garantía.** El piso se calcula contra la compra
+ * **guardada**, pero lo que se escribe es la `fecha` **enviada**: corriendo la
+ * fecha de compra hacia adelante y bajando las cuotas en la misma edición, las
+ * transcurridas se recalculan y el piso cede. Es la consecuencia aceptada de
+ * que la fecha sea editable (es un dato que uno carga mal y corrige) y de que
+ * el piso sea una regla de dominio y no una invariante de la tabla. Vale
+ * saberlo porque el mensaje de error de abajo promete más de lo que el sistema
+ * sostiene: frena bajar el número de cuotas, no reescribir el plan entero.
  */
 export async function editarCompraEnCuotas(
   _estado: EstadoForm,

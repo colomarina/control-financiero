@@ -135,8 +135,9 @@ export default async function CompraEnCuotasPage({
             </>
           )}
 
-          {ultimas.map((fila) => (
+          {ultimas.map((fila, i) => (
             <div key={fila.mes}>
+              {i > 0 && <Separador />}
               <ItemLista
                 icono={ICONO_ESTADO[fila.estado]}
                 tonoIcono={TONO_ESTADO[fila.estado]}
@@ -154,7 +155,11 @@ export default async function CompraEnCuotasPage({
         frecuentes={comerciosFrecuentes(movs, comercios)}
         hoy={hoyISO()}
         compra={compra}
-        minimoCuotas={transcurridas}
+        // Una compra del mes en curso tiene 1 cuota transcurrida, pero
+        // `compraCuotasSchema` exige 2 (una sola cuota es un gasto común, no
+        // un plan). Sin el piso en 2, el stepper ofrecía un escalón que la
+        // action siempre iba a rechazar.
+        minimoCuotas={Math.max(2, transcurridas)}
       />
     </div>
   )

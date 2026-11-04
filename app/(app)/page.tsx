@@ -3,11 +3,12 @@ import { getGastosFijos } from '@/lib/db/gastosFijos'
 import { getComprasEnCuotas } from '@/lib/db/cuotas'
 import { getConfig } from '@/lib/db/config'
 import { mesActual, nombreMes, diaActual, diasDelMes, sumarMeses } from '@/lib/core/fechas'
-import { gastoTarjetaMes, gastoEfectivoMes, gastoContraTope, movimientosOrdenados } from '@/lib/core/gastos'
+import { gastoTarjetaMes, gastoEfectivoMes, movimientosOrdenados } from '@/lib/core/gastos'
 import { cuotasDelMes, cuotasEntre } from '@/lib/core/cuotas'
 import { resumenTope } from '@/lib/core/topes'
-import { fijosPendientes, fijosYaPagados, contadorFijos } from '@/lib/core/fijos'
+import { fijosPendientes, contadorFijos } from '@/lib/core/fijos'
 import {
+  gastoNoVariable,
   tasaVariableDiaria,
   promedioHistoricoDiario,
   tasaDiariaAplicable,
@@ -60,12 +61,10 @@ export default async function HomePage() {
     tasaDiaria: tasaDiariaAplicable({
       tasaMesActual: tasaVariableDiaria({
         gastadoReal: tarjeta.gastado,
-        // Unión de lo que ya no es variable: los fijos ya pagados (sobre los
-        // movimientos reales) más las cuotas del mes, que tampoco se repiten
-        // día a día. Pasarle `conCuotas` a `fijosYaPagados` descontaría una
-        // cuota de un comercio fijo dos veces.
-        fijosYaPagados:
-          fijosYaPagados(fijos, movs, mes, 'tarjeta') + gastoContraTope(cuotasMes, mes, 'tarjeta'),
+        // La unión de fijos ya pagados y cuotas del mes. La cuenta vive en
+        // `lib/core` y no acá, con su test: es la que no puede contar dos
+        // veces la cuota de un comercio fijo.
+        fijosYaPagados: gastoNoVariable(fijos, movs, cuotasMes, mes, 'tarjeta'),
         diaActual: hoy,
       }),
       promHistorico: promedioHistoricoDiario(conCuotas, mes, config.mesesHistorico, 'tarjeta'),

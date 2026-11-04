@@ -4,6 +4,7 @@ import type { CompraCuotasDetalle } from '@/lib/schemas/compraCuotas'
 import type { GastoFijoDetalle } from '@/lib/schemas/gastoFijo'
 import {
   FACTOR_ESCENARIO,
+  gastoNoVariable,
   tasaVariableDiaria,
   promedioHistoricoDiario,
   tasaDiariaAplicable,
@@ -12,7 +13,6 @@ import {
   superaElTope,
 } from './prediccion'
 import { cuotasEntre, cuotasDelMes } from './cuotas'
-import { fijosYaPagados } from './fijos'
 import { gastoContraTope } from './gastos'
 
 let n = 0
@@ -123,7 +123,8 @@ describe('promedioHistoricoDiario con cuotas', () => {
   })
 })
 
-// Review Focus 2
+// El doble descuento: contar la cuota de un comercio fijo como fijo ya pagado
+// Y como cuota del mes hunde la tasa variable sin que nada falle.
 describe('el ritmo variable con una cuota de un comercio fijo', () => {
   it('descuenta la cuota una sola vez', () => {
     const comercioFijo = '00000000-0000-4000-8000-000000000002'
@@ -161,15 +162,48 @@ describe('el ritmo variable con una cuota de un comercio fijo', () => {
     const mezclados = [...movsReales, ...cuotas]
 
     const gastadoReal = gastoContraTope(mezclados, '2026-11', 'tarjeta')
-    const noVariable =
-      fijosYaPagados(fijos, movsReales, '2026-11', 'tarjeta') +
-      gastoContraTope(cuotas, '2026-11', 'tarjeta')
+    const noVariable = gastoNoVariable(fijos, movsReales, cuotas, '2026-11', 'tarjeta')
 
     // gastadoReal = 85.000 (factura) + 123.000 (variable) + 40.000 (cuota) = 248.000
     // noVariable  = 85.000 (fijo ya pagado, de movsReales) + 40.000 (cuota) = 125.000
     // La resta da justo el gasto variable real (123.000): la cuota no se contó dos veces.
     expect(tasaVariableDiaria({ gastadoReal, fijosYaPagados: noVariable, diaActual: 10 }))
       .toBe(12_300)
+  })
+
+  // El seguro de adentro: `fijos.ts` descarta las cuotas por su cuenta, así
+  // que ni siquiera pasándole la lista mezclada se puede contar dos veces.
+  it('da lo mismo aunque le pasen la lista mezclada', () => {
+    const comercioFijo = '00000000-0000-4000-8000-000000000002'
+
+    const fijos: GastoFijoDetalle[] = [
+      {
+        id: '00000000-0000-4000-8000-000000000061',
+        comercioId: comercioFijo,
+        estimadoCentavos: 90_000,
+        pagosEsperados: 1,
+        vencimiento: null,
+        activo: true,
+        comercio: 'Prepaga',
+      },
+    ]
+
+    const movsReales = [
+      mov({
+        comercioId: comercioFijo, fecha: '2026-11-05', importeCentavos: 85_000,
+        esFijo: true, formaPago: 'debito_automatico',
+      }),
+    ]
+    const cuotas = cuotasDelMes(
+      [compra({
+        comercioId: comercioFijo, fecha: '2026-11-03', importeCuotaCentavos: 40_000,
+        cuotas: 3, esFijo: true, comercio: 'Prepaga',
+      })],
+      '2026-11',
+    )
+
+    expect(gastoNoVariable(fijos, [...movsReales, ...cuotas], cuotas, '2026-11', 'tarjeta'))
+      .toBe(gastoNoVariable(fijos, movsReales, cuotas, '2026-11', 'tarjeta'))
   })
 })
 

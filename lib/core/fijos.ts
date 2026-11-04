@@ -1,6 +1,7 @@
 import type { GastoFijoDetalle } from '@/lib/schemas/gastoFijo'
 import type { MovimientoDetalle } from '@/lib/schemas/movimiento'
 import { movimientosDelMes, TOPE_DE_FORMA_PAGO } from './gastos'
+import { esCuota } from './cuotas'
 import { sumar } from './dinero'
 import type { Mes } from './fechas'
 
@@ -59,6 +60,29 @@ function facturasDe(f: GastoFijoDetalle): number {
 }
 
 /**
+ * Acá nunca entra una cuota derivada: un fijo se mide en **facturas que
+ * llegaron**, y una cuota no es una factura. Si una compra en cuotas fuera de
+ * un comercio marcado `es_fijo`, la cuota de este mes se contaría como la
+ * factura del mes y el fijo figuraría pagado sin que llegara nada. No rompe
+ * nada: miente en silencio, que es peor.
+ *
+ * El diseño original dejaba esta regla en manos de las páginas —pasarle solo
+ * movimientos reales— por miedo al doble descuento en la predicción. Se
+ * revisó y se decidió al revés: filtrar **acá adentro** es justo lo que lo
+ * evita. Con el filtro, lo que cuenta `fijos.ts` y lo que suma
+ * `gastoContraTope(cuotasDelMes, ...)` son conjuntos **disjuntos**, así que la
+ * suma de los dos en el Home nunca puede contar una cuota dos veces, le pasen
+ * la lista que le pasen. De convención que hay que recordar pasó a ser
+ * imposible de violar.
+ *
+ * La objeción de pureza no aplica: `esCuota` es una función pura de este mismo
+ * `lib/core` —`prediccion.ts` ya la importa igual—.
+ */
+function soloReales(movs: MovimientoDetalle[]): MovimientoDetalle[] {
+  return movs.filter((m) => !esCuota(m))
+}
+
+/**
  * El checklist del mes, en el orden en que vienen los fijos.
  *
  * `estado` es `parcial` cuando llegó alguna factura pero no todas — el Excel
@@ -70,7 +94,7 @@ export function checklistFijos(
   movs: MovimientoDetalle[],
   mes: Mes,
 ): FilaFijo[] {
-  const delMes = movimientosDelMes(movs, mes)
+  const delMes = movimientosDelMes(soloReales(movs), mes)
 
   return fijos
     .filter((f) => f.activo)
@@ -127,7 +151,7 @@ export function fijosYaPagados(
 ): number {
   const ids = new Set(fijos.filter((f) => f.activo).map((f) => f.comercioId))
   return sumar(
-    ...movimientosDelMes(movs, mes)
+    ...movimientosDelMes(soloReales(movs), mes)
       .filter((m) => ids.has(m.comercioId) && TOPE_DE_FORMA_PAGO[m.formaPago] === tope)
       .map((m) => m.importeCentavos),
   )
