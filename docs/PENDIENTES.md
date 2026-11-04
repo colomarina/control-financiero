@@ -33,6 +33,18 @@ con una sola factura.
 
 ---
 
+## 0.1 Correr la migración de `compras_cuotas` 🟡
+
+Una sola vez, en el SQL Editor de Supabase. La tabla, sus índices y la vista
+`compras_cuotas_detalle` son nuevos y no existen en la base vieja: pegar
+`supabase/schema.sql` entero y ejecutarlo (es idempotente, se puede re-correr
+las veces que haga falta — ya tiene adentro la migración del punto 0).
+
+**Criterio de listo**: insertar una compra de prueba desde el SQL Editor y que
+`getComprasEnCuotas()` (`lib/db/cuotas.ts`) la devuelva.
+
+---
+
 ## 1. Backup de la base 🔴
 
 **Por qué primero.** El plan Free de Supabase **no tiene backups automáticos ni
