@@ -311,12 +311,27 @@ manda el gasto al día siguiente.
   - Si un componente nuevo pide una variante `data-*` que no está, copiarla de
     `shadcn/dist/tailwind.css` al bloque de `globals.css`, no volver a traer el import.
     Lo que no se copió es `scroll-fade`, `shimmer` y `no-scrollbar`.
+  - **Cómo se verifica que las variantes siguen vivas**, si alguien vuelve a tocar el
+    bloque: un `build` verde no alcanza —una variante que falta no rompe nada, solo
+    apaga la animación—. El popover abierto tiene que dar `animationName: "enter"` y,
+    al cerrarse, `"exit"`; sin la variante da `"none"`. Se mira con
+    `getComputedStyle` sobre `[data-slot="popover-content"]`. Para llegar a un
+    `CampoSelect` sin credenciales, una página de prueba bajo `/login` alcanza:
+    `proxy.ts` deja pasar sin sesión todo lo que empieza con `/login`. **Ojo**: una
+    carpeta que arranca con `_` es privada en el App Router y no crea ruta.
   - **`overrides` en `package.json`**: `@typescript-eslint/typescript-estree` pide
-    `minimatch ^10.2.2` y toda la 10.x tiene un advisory de DoS por globs. El override
-    lo sube a `^11.0.4`. La alternativa que ofrecía `npm audit fix --force` era bajar
-    `eslint-config-next` a 15.5.29, que deshacía el parche de seguridad de Next y lo
-    dejaba desalineado con `next`. Si algún día typescript-estree acepta la 11 por su
-    cuenta, el override sobra.
+    `minimatch ^10.2.2` y toda la 10.x tiene un advisory de DoS por globs; el arreglo
+    está en la 11. El override la sube a `^11.0.4`.
+    - **No hay forma de evitarlo todavía**: la última `typescript-estree` (8.72.1 al
+      2026-11-05) sigue declarando `^10.2.2`, así que actualizar no alcanza. Y lo que
+      ofrecía `npm audit fix --force` era bajar `eslint-config-next` a 15.5.29, que
+      deshacía el parche de seguridad de Next y lo dejaba desalineado con `next`.
+    - **Por qué el salto de major no asusta**: `typescript-estree` usa *una* función
+      de minimatch, en un solo lugar (`useProgramFromProjectService.js`, la llamada
+      `minimatch(filePath, pattern, { dot: true })`), y esa firma no cambió. Lo único
+      que la 11 rompe es el soporte de Node 18. Está verificado que las reglas de
+      typescript-eslint siguen disparando, no solo que `eslint` termina en 0.
+    - Cuando typescript-estree acepte la 11 por su cuenta, el override sobra.
 - **Next 16**: `middleware` se llama `proxy` (`proxy.ts` en la raíz). Cache Components
   está apagado a propósito para que valga el flujo clásico con `revalidatePath`.
 - **Un solo umbral de semáforo**: `config.umbral_cerca_pct` (default 85). El Excel
