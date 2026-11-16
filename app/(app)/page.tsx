@@ -7,14 +7,7 @@ import { gastoTarjetaMes, gastoEfectivoMes, movimientosOrdenados } from '@/lib/c
 import { cuotasDelMes, cuotasEntre } from '@/lib/core/cuotas'
 import { resumenTope } from '@/lib/core/topes'
 import { fijosPendientes, contadorFijos } from '@/lib/core/fijos'
-import {
-  gastoNoVariable,
-  tasaVariableDiaria,
-  promedioHistoricoDiario,
-  tasaDiariaAplicable,
-  prediccionCierre,
-  superaElTope,
-} from '@/lib/core/prediccion'
+import { prediccionDelTope, superaElTope } from '@/lib/core/prediccion'
 import { formatoARS } from '@/lib/core/dinero'
 import { BarraTope } from '@/components/BarraTope'
 import { MovimientosMes } from '@/components/MovimientosMes'
@@ -35,7 +28,7 @@ export default async function HomePage() {
   // `movs` son los movimientos reales y no se tocan: los fijos se derivan
   // contando movimientos por comercio, y una cuota de un comercio fijo haría
   // que el fijo lea como pagado sin que llegara nada. `conCuotas` es la lista
-  // mezclada para todo lo que sí tiene que ver la cuota (topes, lista, ritmo).
+  // mezclada para todo lo que sí tiene que ver la cuota (topes, lista).
   const cuotasMes = cuotasDelMes(compras, mes)
   const conCuotas = [...movs, ...cuotasEntre(compras, desde, mes)]
 
@@ -55,25 +48,14 @@ export default async function HomePage() {
 
   // La predicción es sobre el tope de tarjeta, como en la hoja del Excel.
   const pendientes = fijosPendientes(fijos, movs, mes)
-  const prediccion = prediccionCierre({
-    gastadoReal: tarjeta.gastado,
-    fijosPendientes: pendientes,
-    tasaDiaria: tasaDiariaAplicable({
-      tasaMesActual: tasaVariableDiaria({
-        gastadoReal: tarjeta.gastado,
-        // La unión de fijos ya pagados y cuotas del mes. La cuenta vive en
-        // `lib/core` y no acá, con su test: es la que no puede contar dos
-        // veces la cuota de un comercio fijo.
-        fijosYaPagados: gastoNoVariable(fijos, movs, cuotasMes, mes, 'tarjeta'),
-        diaActual: hoy,
-      }),
-      promHistorico: promedioHistoricoDiario(conCuotas, mes, config.mesesHistorico, 'tarjeta'),
-      diaActual: hoy,
-      umbralDia: config.umbralDia,
-    }),
+  const { prediccion } = prediccionDelTope({
+    movsReales: movs,
+    cuotasMes,
+    fijos,
+    mes,
+    tope: 'tarjeta',
+    mesesHistorico: config.mesesHistorico,
     diaActual: hoy,
-    diasMes: dias,
-    umbralDia: config.umbralDia,
   })
 
   const fijosContador = contadorFijos(fijos, movs, mes)
