@@ -1,5 +1,5 @@
 import 'server-only'
-import { crearCliente } from './client'
+import { crearCliente, usuarioRequerido } from './client'
 import type { GastoFijoDetalle } from '@/lib/schemas/gastoFijo'
 import { fallaDb } from '@/lib/db/errores'
 
@@ -53,12 +53,11 @@ export async function guardarGastoFijo(g: {
   vencimiento: string | null
 }): Promise<void> {
   const supabase = await crearCliente()
-  const { data: user } = await supabase.auth.getUser()
-  if (!user.user) throw new Error('No hay sesión activa.')
+  const userId = await usuarioRequerido()
 
   const { error } = await supabase.from('gastos_fijos').upsert(
     {
-      user_id: user.user.id,
+      user_id: userId,
       comercio_id: g.comercioId,
       importe_estimado_centavos: g.estimadoCentavos,
       pagos_esperados: g.pagosEsperados,

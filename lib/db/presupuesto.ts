@@ -1,5 +1,5 @@
 import 'server-only'
-import { crearCliente } from './client'
+import { crearCliente, usuarioRequerido } from './client'
 import type { LineaPresupuestoDetalle } from '@/lib/schemas/presupuesto'
 import type { Mes } from '@/lib/core/fechas'
 import { fallaDb } from '@/lib/db/errores'
@@ -71,12 +71,11 @@ export async function guardarLinea(l: {
     return
   }
 
-  const { data: user } = await supabase.auth.getUser()
-  if (!user.user) throw new Error('No hay sesión activa.')
+  const userId = await usuarioRequerido()
 
   const { error } = await supabase.from('presupuesto').upsert(
     {
-      user_id: user.user.id,
+      user_id: userId,
       mes: l.mes,
       comercio_id: l.comercioId,
       planeado_centavos: l.planeadoCentavos,
@@ -95,12 +94,11 @@ export async function guardarLineas(
   if (utiles.length === 0) return 0
 
   const supabase = await crearCliente()
-  const { data: user } = await supabase.auth.getUser()
-  if (!user.user) throw new Error('No hay sesión activa.')
+  const userId = await usuarioRequerido()
 
   const { error } = await supabase.from('presupuesto').upsert(
     utiles.map((l) => ({
-      user_id: user.user!.id,
+      user_id: userId,
       mes: l.mes,
       comercio_id: l.comercioId,
       planeado_centavos: l.planeadoCentavos,
