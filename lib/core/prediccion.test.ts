@@ -4,16 +4,17 @@ import type { CompraCuotasDetalle } from '@/lib/schemas/compraCuotas'
 import type { GastoFijoDetalle } from '@/lib/schemas/gastoFijo'
 import {
   FACTOR_ESCENARIO,
-  gastoNoVariable,
-  tasaVariableDiaria,
-  promedioHistoricoDiario,
-  tasaDiariaAplicable,
+  PESO_HISTORICO_DIAS,
+  DIAS_MINIMOS_SIN_HISTORICO,
+  DIAS_PUNTUAL,
   prediccionCierre,
+  prediccionDelTope,
   margenDisponible,
   superaElTope,
+  type Prediccion,
 } from './prediccion'
-import { cuotasEntre, cuotasDelMes } from './cuotas'
-import { gastoContraTope } from './gastos'
+import type { PerfilHistorico } from './puntuales'
+import { cuotasDelMes } from './cuotas'
 
 let n = 0
 function mov(p: Partial<MovimientoDetalle> = {}): MovimientoDetalle {
@@ -55,239 +56,177 @@ function compra(p: Partial<CompraCuotasDetalle> = {}): CompraCuotasDetalle {
   }
 }
 
-describe('tasaVariableDiaria', () => {
-  it('descuenta los fijos ya pagados antes de dividir por los días', () => {
-    // (500.000 - 200.000) / 10 = 30.000 por día
-    expect(tasaVariableDiaria({ gastadoReal: 500_000, fijosYaPagados: 200_000, diaActual: 10 }))
-      .toBe(30_000)
+function proyeccion(p: Prediccion) {
+  if (p.status !== 'proyeccion') throw new Error('status inesperado')
+  return p
+}
+
+describe('constantes', () => {
+  it('reproduce los factores de la hoja Prediccion del Excel', () => {
+    expect(FACTOR_ESCENARIO).toEqual({ optimista: 0.85, normal: 1, pesimista: 1.25 })
   })
 
-  it('no devuelve negativo si los fijos superan lo gastado', () => {
-    expect(tasaVariableDiaria({ gastadoReal: 100_000, fijosYaPagados: 300_000, diaActual: 5 }))
-      .toBe(0)
-  })
-
-  it('es 0 el día 0 (no divide por cero)', () => {
-    expect(tasaVariableDiaria({ gastadoReal: 500_000, fijosYaPagados: 0, diaActual: 0 }))
-      .toBe(0)
-  })
-})
-
-describe('promedioHistoricoDiario', () => {
-  const movs = [
-    // Agosto (31 días): 310.000 variables con tarjeta -> 10.000/día
-    mov({ fecha: '2026-08-10', importeCentavos: 310_000 }),
-    // Julio (31 días): 620.000 variables con tarjeta -> 20.000/día
-    mov({ fecha: '2026-07-10', importeCentavos: 620_000 }),
-    // Un fijo: no entra en el ritmo variable.
-    mov({ fecha: '2026-08-05', importeCentavos: 900_000, esFijo: true }),
-    // Efectivo: no entra en el ritmo de tarjeta.
-    mov({ fecha: '2026-08-06', importeCentavos: 900_000, formaPago: 'efectivo' }),
-  ]
-
-  it('promedia el ritmo variable de los meses cerrados', () => {
-    expect(promedioHistoricoDiario(movs, '2026-09', 2)).toBe(15_000)
-  })
-
-  it('ignora los meses sin movimientos en vez de contarlos como cero', () => {
-    // Pedimos 6 meses pero solo 2 tienen datos: el promedio no se diluye.
-    expect(promedioHistoricoDiario(movs, '2026-09', 6)).toBe(15_000)
-  })
-
-  it('es 0 si no hay histórico', () => {
-    expect(promedioHistoricoDiario([], '2026-09', 3)).toBe(0)
-  })
-
-  it('puede medir el ritmo del otro tope', () => {
-    // 900.000 en efectivo en agosto (31 días)
-    expect(promedioHistoricoDiario(movs, '2026-09', 1, 'efectivo')).toBeCloseTo(900_000 / 31, 6)
-  })
-})
-
-describe('promedioHistoricoDiario con cuotas', () => {
-  it('no cuenta las cuotas de los meses viejos en el ritmo variable', () => {
-    const variables = [
-      mov({ fecha: '2026-09-10', importeCentavos: 300_000 }),
-      mov({ fecha: '2026-10-10', importeCentavos: 600_000 }),
-    ]
-    // Compra de agosto en 6 cuotas: a la altura de noviembre ya dejó una
-    // cuota en septiembre y otra en octubre, cada una de 50.000.
-    const compraVieja = compra({ fecha: '2026-08-15', importeCuotaCentavos: 50_000, cuotas: 6 })
-
-    const sinCuotas = promedioHistoricoDiario(variables, '2026-11', 2, 'tarjeta')
-    const conCuotas = promedioHistoricoDiario(
-      [...variables, ...cuotasEntre([compraVieja], '2026-09', '2026-10')],
-      '2026-11', 2, 'tarjeta',
-    )
-    expect(conCuotas).toBe(sinCuotas)
-  })
-})
-
-// El doble descuento: contar la cuota de un comercio fijo como fijo ya pagado
-// Y como cuota del mes hunde la tasa variable sin que nada falle.
-describe('el ritmo variable con una cuota de un comercio fijo', () => {
-  it('descuenta la cuota una sola vez', () => {
-    const comercioFijo = '00000000-0000-4000-8000-000000000002'
-    const comercioVariable = '00000000-0000-4000-8000-000000000003'
-
-    const fijos: GastoFijoDetalle[] = [
-      {
-        id: '00000000-0000-4000-8000-000000000060',
-        comercioId: comercioFijo,
-        estimadoCentavos: 90_000,
-        pagosEsperados: 1,
-        vencimiento: null,
-        activo: true,
-        comercio: 'Prepaga',
-      },
-    ]
-
-    // La factura real de noviembre del fijo, más un gasto variable cualquiera.
-    const movsReales = [
-      mov({
-        comercioId: comercioFijo, fecha: '2026-11-05', importeCentavos: 85_000,
-        esFijo: true, formaPago: 'debito_automatico',
-      }),
-      mov({ comercioId: comercioVariable, fecha: '2026-11-07', importeCentavos: 123_000, esFijo: false }),
-    ]
-
-    // El mismo comercio tiene además un plan en cuotas (p.ej. algo financiado
-    // por la prepaga): la cuota de noviembre es un movimiento aparte de la
-    // factura mensual.
-    const compraDeComercioFijo = compra({
-      comercioId: comercioFijo, fecha: '2026-11-03', importeCuotaCentavos: 40_000,
-      cuotas: 3, esFijo: true, comercio: 'Prepaga',
-    })
-    const cuotas = cuotasDelMes([compraDeComercioFijo], '2026-11')
-    const mezclados = [...movsReales, ...cuotas]
-
-    const gastadoReal = gastoContraTope(mezclados, '2026-11', 'tarjeta')
-    const noVariable = gastoNoVariable(fijos, movsReales, cuotas, '2026-11', 'tarjeta')
-
-    // gastadoReal = 85.000 (factura) + 123.000 (variable) + 40.000 (cuota) = 248.000
-    // noVariable  = 85.000 (fijo ya pagado, de movsReales) + 40.000 (cuota) = 125.000
-    // La resta da justo el gasto variable real (123.000): la cuota no se contó dos veces.
-    expect(tasaVariableDiaria({ gastadoReal, fijosYaPagados: noVariable, diaActual: 10 }))
-      .toBe(12_300)
-  })
-
-  // El seguro de adentro: `fijos.ts` descarta las cuotas por su cuenta, así
-  // que ni siquiera pasándole la lista mezclada se puede contar dos veces.
-  it('da lo mismo aunque le pasen la lista mezclada', () => {
-    const comercioFijo = '00000000-0000-4000-8000-000000000002'
-
-    const fijos: GastoFijoDetalle[] = [
-      {
-        id: '00000000-0000-4000-8000-000000000061',
-        comercioId: comercioFijo,
-        estimadoCentavos: 90_000,
-        pagosEsperados: 1,
-        vencimiento: null,
-        activo: true,
-        comercio: 'Prepaga',
-      },
-    ]
-
-    const movsReales = [
-      mov({
-        comercioId: comercioFijo, fecha: '2026-11-05', importeCentavos: 85_000,
-        esFijo: true, formaPago: 'debito_automatico',
-      }),
-    ]
-    const cuotas = cuotasDelMes(
-      [compra({
-        comercioId: comercioFijo, fecha: '2026-11-03', importeCuotaCentavos: 40_000,
-        cuotas: 3, esFijo: true, comercio: 'Prepaga',
-      })],
-      '2026-11',
-    )
-
-    expect(gastoNoVariable(fijos, [...movsReales, ...cuotas], cuotas, '2026-11', 'tarjeta'))
-      .toBe(gastoNoVariable(fijos, movsReales, cuotas, '2026-11', 'tarjeta'))
-  })
-})
-
-describe('tasaDiariaAplicable', () => {
-  const base = { tasaMesActual: 30_000, promHistorico: 10_000, umbralDia: 10 }
-
-  it('usa el ritmo del mes cuando ya pasó el umbral', () => {
-    expect(tasaDiariaAplicable({ ...base, diaActual: 10 })).toBe(30_000)
-    expect(tasaDiariaAplicable({ ...base, diaActual: 25 })).toBe(30_000)
-  })
-
-  it('usa el histórico mientras es temprano', () => {
-    expect(tasaDiariaAplicable({ ...base, diaActual: 3 })).toBe(10_000)
-  })
-
-  it('cae al ritmo del mes si no hay histórico', () => {
-    expect(tasaDiariaAplicable({ ...base, promHistorico: 0, diaActual: 3 })).toBe(30_000)
+  it('pesos y umbrales del método', () => {
+    expect(PESO_HISTORICO_DIAS).toBe(7)
+    expect(DIAS_MINIMOS_SIN_HISTORICO).toBe(7)
+    expect(DIAS_PUNTUAL).toBe(5)
   })
 })
 
 describe('prediccionCierre', () => {
-  const args = {
-    gastadoReal: 600_000,
-    fijosPendientes: 400_000,
-    tasaDiaria: 20_000,
-    diaActual: 10,
-    diasMes: 30,
-    umbralDia: 10,
+  const perfil: PerfilHistorico = {
+    meses: 3, ritmoDiario: 1_000_000, puntualesPorMes: 0, umbral: 5_000_000,
+  }
+  const sinHistorico: PerfilHistorico = {
+    meses: 0, ritmoDiario: 0, puntualesPorMes: 0, umbral: null,
   }
 
-  it('avisa que es temprano antes del umbral', () => {
-    const p = prediccionCierre({ ...args, diaActual: 3 })
-    expect(p.status).toBe('temprano')
-    if (p.status !== 'temprano') throw new Error('status inesperado')
-    expect(p.diasParaProyectar).toBe(7)
-    expect(p.mensaje).toContain('3 días')
+  it('una compra puntual no se proyecta a los días que quedan', () => {
+    // día 5 de 30: $50.000 de variable normal + una TV de $400.000
+    const p = prediccionCierre({ gastado: 45_000_000, fijosPendientes: 0, variableMes: 5_000_000,
+      puntualesMes: 40_000_000, perfil, diaActual: 5, diasMes: 30 })
+    expect(p.status === 'proyeccion' && p.normal).toBe(70_000_000) // el método viejo daba 270_000_000
   })
 
-  it('proyecta justo en el umbral', () => {
-    expect(prediccionCierre(args).status).toBe('proyeccion')
+  it('el día 1 ya proyecta, casi todo con el histórico', () => {
+    // ritmo del mes: 9.000.000 / 1 ; histórico: 1.000.000
+    const p = proyeccion(prediccionCierre({ gastado: 9_000_000, fijosPendientes: 0,
+      variableMes: 9_000_000, puntualesMes: 0, perfil, diaActual: 1, diasMes: 30 }))
+    expect(p.ritmoDiario).toBe((7 * 1_000_000 + 1 * 9_000_000) / 8)
+    expect(p.diasRestantes).toBe(29)
+    expect(p.normal).toBe(9_000_000 + 2_000_000 * 29)
   })
 
-  it('calcula B + E para los tres escenarios', () => {
-    const p = prediccionCierre(args)
-    if (p.status !== 'proyeccion') throw new Error('status inesperado')
-    // B = 600.000 + 400.000 = 1.000.000 ; días restantes = 20 ; E = 20.000 * 20 = 400.000
-    expect(p.base).toBe(1_000_000)
-    expect(p.diasRestantes).toBe(20)
-    expect(p.optimista).toBe(1_000_000 + 400_000 * 0.85)
-    expect(p.normal).toBe(1_400_000)
-    expect(p.pesimista).toBe(1_000_000 + 400_000 * 1.25)
+  it('el peso del mes crece con los días', () => {
+    // día 28: ritmo del mes 3.000.000, histórico 1.000.000
+    const p = proyeccion(prediccionCierre({ gastado: 84_000_000, fijosPendientes: 0,
+      variableMes: 84_000_000, puntualesMes: 0, perfil, diaActual: 28, diasMes: 30 }))
+    expect(p.ritmoDiario).toBe((7 * 1_000_000 + 28 * 3_000_000) / 35)
+    expect(Math.abs(p.ritmoDiario - 3_000_000)).toBeLessThan(Math.abs(p.ritmoDiario - 1_000_000))
   })
 
-  it('ordena los escenarios de menor a mayor', () => {
-    const p = prediccionCierre(args)
-    if (p.status !== 'proyeccion') throw new Error('status inesperado')
-    expect(p.optimista).toBeLessThan(p.normal)
-    expect(p.normal).toBeLessThan(p.pesimista)
+  it('suma los puntuales que solés hacer y todavía no hiciste', () => {
+    const p = proyeccion(prediccionCierre({ gastado: 10_000_000, fijosPendientes: 0,
+      variableMes: 0, puntualesMes: 0,
+      perfil: { meses: 3, ritmoDiario: 0, puntualesPorMes: 30_000_000, umbral: 5_000_000 },
+      diaActual: 15, diasMes: 30 }))
+    expect(p.puntualesEsperados).toBe(15_000_000)
+    expect(p.optimista).toBe(10_000_000)
+    expect(p.normal).toBe(25_000_000)
+    expect(p.pesimista).toBe(25_000_000)
   })
 
-  it('el último día del mes el cierre es solo la base', () => {
-    const p = prediccionCierre({ ...args, diaActual: 30 })
-    if (p.status !== 'proyeccion') throw new Error('status inesperado')
+  it('si ya hiciste más puntuales que el promedio no espera más', () => {
+    const p = proyeccion(prediccionCierre({ gastado: 40_000_000, fijosPendientes: 0,
+      variableMes: 0, puntualesMes: 40_000_000,
+      perfil: { meses: 3, ritmoDiario: 0, puntualesPorMes: 30_000_000, umbral: 5_000_000 },
+      diaActual: 15, diasMes: 30 }))
+    expect(p.puntualesEsperados).toBe(0)
+    expect(p.normal).toBe(40_000_000)
+  })
+
+  it('el último día los tres escenarios son la base', () => {
+    const p = proyeccion(prediccionCierre({ gastado: 50_000_000, fijosPendientes: 3_000_000,
+      variableMes: 30_000_000, puntualesMes: 0,
+      perfil: { meses: 3, ritmoDiario: 1_000_000, puntualesPorMes: 30_000_000, umbral: 5_000_000 },
+      diaActual: 30, diasMes: 30 }))
     expect(p.diasRestantes).toBe(0)
-    expect(p.normal).toBe(1_000_000)
-    expect(p.optimista).toBe(p.pesimista)
+    expect(p.base).toBe(53_000_000)
+    expect([p.optimista, p.normal, p.pesimista]).toEqual([53_000_000, 53_000_000, 53_000_000])
+  })
+
+  it('optimista ≤ normal ≤ pesimista', () => {
+    for (const dia of [1, 5, 10, 20, 29, 30]) {
+      const p = proyeccion(prediccionCierre({ gastado: 12_345_678, fijosPendientes: 1_111_111,
+        variableMes: 7_777_777, puntualesMes: 3_000_000,
+        perfil: { meses: 2, ritmoDiario: 333_333.33, puntualesPorMes: 9_000_000, umbral: 1_000_000 },
+        diaActual: dia, diasMes: 31 }))
+      expect(p.optimista).toBeLessThanOrEqual(p.normal)
+      expect(p.normal).toBeLessThanOrEqual(p.pesimista)
+    }
   })
 
   it('devuelve enteros (centavos), no decimales', () => {
-    const p = prediccionCierre({ ...args, tasaDiaria: 33_333.33 })
-    if (p.status !== 'proyeccion') throw new Error('status inesperado')
-    expect(Number.isInteger(p.optimista)).toBe(true)
-    expect(Number.isInteger(p.normal)).toBe(true)
-    expect(Number.isInteger(p.pesimista)).toBe(true)
+    const p = proyeccion(prediccionCierre({ gastado: 1_000_001, fijosPendientes: 0,
+      variableMes: 1_000_001, puntualesMes: 0,
+      perfil: { meses: 1, ritmoDiario: 33_333.33, puntualesPorMes: 1_234_567, umbral: 1 },
+      diaActual: 7, diasMes: 31 }))
+    for (const x of [p.optimista, p.normal, p.pesimista, p.ritmoDiario, p.puntualesEsperados]) {
+      expect(Number.isInteger(x)).toBe(true)
+    }
   })
 
-  it('sin gasto variable el cierre es la base en los tres escenarios', () => {
-    const p = prediccionCierre({ ...args, tasaDiaria: 0 })
-    if (p.status !== 'proyeccion') throw new Error('status inesperado')
-    expect([p.optimista, p.normal, p.pesimista]).toEqual([1_000_000, 1_000_000, 1_000_000])
+  it('sin histórico y antes del día 7 es temprano', () => {
+    const p = prediccionCierre({ gastado: 5_000_000, fijosPendientes: 0, variableMes: 5_000_000,
+      puntualesMes: 0, perfil: sinHistorico, diaActual: 3, diasMes: 30 })
+    expect(p.status).toBe('temprano')
+    if (p.status !== 'temprano') throw new Error('status inesperado')
+    expect(p.diasParaProyectar).toBe(4)
+    expect(p.mensaje).toContain('3 días')
   })
 
-  it('reproduce los factores de la hoja Prediccion del Excel', () => {
-    expect(FACTOR_ESCENARIO).toEqual({ optimista: 0.85, normal: 1, pesimista: 1.25 })
+  it('sin histórico desde el día 7 usa solo el ritmo del mes', () => {
+    // 7.000.000 / 7 = 1.000.000 por día, 23 días restantes
+    const p = proyeccion(prediccionCierre({ gastado: 7_000_000, fijosPendientes: 2_000_000,
+      variableMes: 7_000_000, puntualesMes: 0, perfil: sinHistorico, diaActual: 7, diasMes: 30 }))
+    expect(p.ritmoDiario).toBe(1_000_000)
+    expect(p.puntualesEsperados).toBe(0)
+    expect(p.base).toBe(9_000_000)
+    expect(p.normal).toBe(9_000_000 + 23_000_000)
+  })
+})
+
+describe('prediccionDelTope', () => {
+  const MES = '2026-11'
+
+  it('efectivo no suma fijos pendientes', () => {
+    const fijos: GastoFijoDetalle[] = [{
+      id: '00000000-0000-4000-8000-000000000060',
+      comercioId: '00000000-0000-4000-8000-000000000002',
+      estimadoCentavos: 9_000_000,
+      pagosEsperados: 1,
+      vencimiento: null,
+      activo: true,
+      comercio: 'Prepaga',
+    }]
+    const movsReales = [
+      mov({ fecha: '2026-11-03', importeCentavos: 700_000, formaPago: 'efectivo' }),
+      mov({ fecha: '2026-11-04', importeCentavos: 300_000, formaPago: 'tarjeta_credito' }),
+    ]
+    const args = { movsReales, cuotasMes: [], fijos, mes: MES, mesesHistorico: 3, diaActual: 10 }
+
+    const efectivo = proyeccion(prediccionDelTope({ ...args, tope: 'efectivo' }).prediccion)
+    expect(efectivo.base).toBe(700_000)
+
+    const tarjeta = proyeccion(prediccionDelTope({ ...args, tope: 'tarjeta' }).prediccion)
+    expect(tarjeta.base).toBe(300_000 + 9_000_000)
+  })
+
+  it('una cuota de tarjeta entra al gastado pero no al ritmo ni a puntuales', () => {
+    // Histórico: agosto–octubre con $1.000 diarios de variable, para que haya umbral.
+    const historico = ['2026-08', '2026-09', '2026-10'].flatMap((mes) =>
+      Array.from({ length: 10 }, (_, i) =>
+        mov({ fecha: `${mes}-${String(i + 1).padStart(2, '0')}`, importeCentavos: 300_000 }),
+      ),
+    )
+    const movsReales = [...historico, mov({ fecha: '2026-11-05', importeCentavos: 200_000 })]
+    const cuotasMes = cuotasDelMes(
+      [compra({ fecha: '2026-11-03', importeCuotaCentavos: 50_000_000, cuotas: 6 })],
+      MES,
+    )
+    expect(cuotasMes).toHaveLength(1)
+
+    const args = { movsReales, fijos: [], mes: MES, tope: 'tarjeta' as const,
+      mesesHistorico: 3, diaActual: 10 }
+    const sin = prediccionDelTope({ ...args, cuotasMes: [] })
+    const con = prediccionDelTope({ ...args, cuotasMes })
+
+    const pSin = proyeccion(sin.prediccion)
+    const pCon = proyeccion(con.prediccion)
+    expect(pCon.base).toBe(pSin.base + 50_000_000)
+    expect(pCon.ritmoDiario).toBe(pSin.ritmoDiario)
+    expect(pCon.puntualesEsperados).toBe(pSin.puntualesEsperados)
+    expect(con.puntualesMes).toEqual([])
   })
 })
 
@@ -305,24 +244,27 @@ describe('margenDisponible', () => {
 })
 
 describe('superaElTope', () => {
-  const proyeccion = prediccionCierre({
-    gastadoReal: 600_000, fijosPendientes: 400_000, tasaDiaria: 20_000,
-    diaActual: 10, diasMes: 30, umbralDia: 10,
+  // base 1.000.000, ritmo 20.000 × 20 días → normal 1.400.000
+  const p = prediccionCierre({
+    gastado: 600_000, fijosPendientes: 400_000, variableMes: 200_000, puntualesMes: 0,
+    perfil: { meses: 3, ritmoDiario: 20_000, puntualesPorMes: 0, umbral: null },
+    diaActual: 10, diasMes: 30,
   })
 
   it('detecta cuando la proyección normal se pasa', () => {
-    expect(superaElTope(proyeccion, 1_000_000)).toBe(true)
-    expect(superaElTope(proyeccion, 2_000_000)).toBe(false)
+    expect(superaElTope(p, 1_000_000)).toBe(true)
+    expect(superaElTope(p, 2_000_000)).toBe(false)
   })
 
   it('sin tope configurado nunca se pasa', () => {
-    expect(superaElTope(proyeccion, 0)).toBe(false)
+    expect(superaElTope(p, 0)).toBe(false)
   })
 
   it('mientras es temprano no afirma nada', () => {
     const temprano = prediccionCierre({
-      gastadoReal: 9_999_999, fijosPendientes: 0, tasaDiaria: 0,
-      diaActual: 1, diasMes: 30, umbralDia: 10,
+      gastado: 9_999_999, fijosPendientes: 0, variableMes: 0, puntualesMes: 0,
+      perfil: { meses: 0, ritmoDiario: 0, puntualesPorMes: 0, umbral: null },
+      diaActual: 1, diasMes: 30,
     })
     expect(superaElTope(temprano, 1)).toBe(false)
   })

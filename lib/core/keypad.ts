@@ -98,3 +98,70 @@ export function desdeCentavos(centavos: number): Importe {
     decimales: resto === 0 ? null : String(resto).padStart(2, '0'),
   }
 }
+
+/**
+ * Un punto seguido de 1 o 2 dígitos al final, sin coma en ningún lado:
+ * '1500.50' copiado de un home banking o una calculadora en formato US.
+ */
+const PUNTO_DECIMAL_FINAL = /^[^,]*\.\d{1,2}$/
+
+/**
+ * Lee un texto con el formato de pantalla ('1.500,50', '$ 2500') como si se
+ * hubiera tipeado: los puntos son miles y se ignoran, la primera coma abre los
+ * centavos y cualquier otra cosa no cuenta. Es lo que hace pegar un importe.
+ *
+ * Única excepción: si no hay coma y el texto termina en un punto con 1 o 2
+ * dígitos, ese punto es decimal. Sin esto, pegar '1500.50' cargaba $150.050
+ * —cien veces el monto— sin ningún aviso. Con 3 dígitos ('1.500') sigue siendo
+ * de miles, que es lo que muestra la pantalla.
+ */
+export function desdeTexto(texto: string): Importe {
+  const limpio = texto.trim()
+  const decimalConPunto = PUNTO_DECIMAL_FINAL.test(limpio)
+  const ultimoPunto = limpio.lastIndexOf('.')
+
+  let i = IMPORTE_VACIO
+  for (let k = 0; k < limpio.length; k++) {
+    const c = limpio[k]
+    if (c === ',' || (decimalConPunto && k === ultimoPunto)) i = pulsarComa(i)
+    else i = pulsarDigito(i, c)
+  }
+  return i
+}
+
+/**
+ * Traduce un evento `beforeinput` del campo del importe a las mismas reglas
+ * del keypad. El campo nunca deja que el navegador edite su texto: cada
+ * tecla pasa por acá, así que tipear con el teclado del celular, con el de la
+ * compu o pegar dan siempre el mismo resultado que el teclado propio de antes.
+ *
+ * Al tipear, el punto vale como coma: el teclado numérico de muchos celulares
+ * solo trae punto, y los miles los pone la pantalla, nunca quien tipea.
+ */
+export function aplicarEntrada(i: Importe, tipo: string, datos: string | null): Importe {
+  switch (tipo) {
+    case 'insertText':
+    case 'insertReplacementText': {
+      let r = i
+      for (const c of datos ?? '') {
+        if (c === ',' || c === '.') r = pulsarComa(r)
+        else r = pulsarDigito(r, c)
+      }
+      return r
+    }
+    case 'insertFromPaste':
+    case 'insertFromDrop':
+      return desdeTexto(datos ?? '')
+    case 'deleteContentBackward':
+    case 'deleteContentForward':
+      return borrar(i)
+    case 'deleteByCut':
+    case 'deleteWordBackward':
+    case 'deleteWordForward':
+    case 'deleteSoftLineBackward':
+    case 'deleteHardLineBackward':
+      return IMPORTE_VACIO
+    default:
+      return i
+  }
+}

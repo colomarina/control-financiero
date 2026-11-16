@@ -2,6 +2,8 @@ import 'server-only'
 import { crearCliente } from './client'
 import type { FormaPago, MovimientoDetalle } from '@/lib/schemas/movimiento'
 import { diasDelMes, type Mes } from '@/lib/core/fechas'
+import { fallaDb } from '@/lib/db/errores'
+import { leerPaginado } from '@/lib/db/paginar'
 
 /**
  * Repositorio de movimientos.
@@ -12,7 +14,7 @@ import { diasDelMes, type Mes } from '@/lib/core/fechas'
 
 const COLUMNAS =
   'id, fecha, comercio_id, importe_centavos, forma_pago, banco, tarjeta, nota, ' +
-  'comercio, categoria, subcategoria, es_fijo'
+  'comercio, categoria, subcategoria, es_fijo, puntual'
 
 type FilaDetalle = {
   id: string
@@ -27,6 +29,7 @@ type FilaDetalle = {
   categoria: string
   subcategoria: string | null
   es_fijo: boolean
+  puntual: boolean | null
 }
 
 function aDominio(f: FilaDetalle): MovimientoDetalle {
@@ -43,6 +46,7 @@ function aDominio(f: FilaDetalle): MovimientoDetalle {
     categoria: f.categoria,
     subcategoria: f.subcategoria,
     esFijo: f.es_fijo,
+    puntual: f.puntual,
   }
 }
 
@@ -58,15 +62,19 @@ function rangoDelMes(mes: Mes): [string, string] {
 export async function getMovimientosDelMes(mes: Mes): Promise<MovimientoDetalle[]> {
   const [desde, hasta] = rangoDelMes(mes)
   const supabase = await crearCliente()
-  const { data, error } = await supabase
-    .from('movimientos_detalle')
-    .select(COLUMNAS)
-    .gte('fecha', desde)
-    .lte('fecha', hasta)
-    .order('fecha', { ascending: false })
-
-  if (error) throw new Error(`No pude leer los movimientos: ${error.message}`)
-  return (data as unknown as FilaDetalle[]).map(aDominio)
+  const filas = await leerPaginado<FilaDetalle>(async (d, h) => {
+    const { data, error } = await supabase
+      .from('movimientos_detalle')
+      .select(COLUMNAS)
+      .gte('fecha', desde)
+      .lte('fecha', hasta)
+      .order('fecha', { ascending: false })
+      .order('id')
+      .range(d, h)
+    if (error) fallaDb('leer los movimientos', error)
+    return data as unknown as FilaDetalle[]
+  })
+  return filas.map(aDominio)
 }
 
 /**
@@ -75,26 +83,18 @@ export async function getMovimientosDelMes(mes: Mes): Promise<MovimientoDetalle[
  */
 export async function getMovimientosDesde(mes: Mes): Promise<MovimientoDetalle[]> {
   const supabase = await crearCliente()
-  const { data, error } = await supabase
-    .from('movimientos_detalle')
-    .select(COLUMNAS)
-    .gte('fecha', `${mes}-01`)
-    .order('fecha', { ascending: false })
-
-  if (error) throw new Error(`No pude leer los movimientos: ${error.message}`)
-  return (data as unknown as FilaDetalle[]).map(aDominio)
-}
-
-/** Los meses que tienen al menos un movimiento, del más nuevo al más viejo. */
-export async function getMesesConMovimientos(): Promise<Mes[]> {
-  const supabase = await crearCliente()
-  const { data, error } = await supabase
-    .from('movimientos_detalle')
-    .select('mes')
-    .order('mes', { ascending: false })
-
-  if (error) throw new Error(`No pude leer los meses: ${error.message}`)
-  return [...new Set((data as unknown as { mes: string }[]).map((f) => f.mes))]
+  const filas = await leerPaginado<FilaDetalle>(async (d, h) => {
+    const { data, error } = await supabase
+      .from('movimientos_detalle')
+      .select(COLUMNAS)
+      .gte('fecha', `${mes}-01`)
+      .order('fecha', { ascending: false })
+      .order('id')
+      .range(d, h)
+    if (error) fallaDb('leer los movimientos', error)
+    return data as unknown as FilaDetalle[]
+  })
+  return filas.map(aDominio)
 }
 
 export async function crearMovimiento(m: {
@@ -105,6 +105,7 @@ export async function crearMovimiento(m: {
   banco: string | null
   tarjeta: string | null
   nota: string | null
+  puntual: boolean | null
 }): Promise<void> {
   const supabase = await crearCliente()
   const { error } = await supabase.from('movimientos').insert({
@@ -115,15 +116,17 @@ export async function crearMovimiento(m: {
     banco: m.banco,
     tarjeta: m.tarjeta,
     nota: m.nota,
+    puntual: m.puntual,
   })
 
-  if (error) throw new Error(`No pude guardar el movimiento: ${error.message}`)
+  if (error) fallaDb('guardar el movimiento', error)
 }
 
 export async function borrarMovimiento(id: string): Promise<void> {
   const supabase = await crearCliente()
-  const { error } = await supabase.from('movimientos').delete().eq('id', id)
-  if (error) throw new Error(`No pude borrar el movimiento: ${error.message}`)
+  const { data, error } = await supabase.from('movimientos').delete().eq('id', id).select('id')
+  if (error) fallaDb('borrar el movimiento', error)
+  if (data.length === 0) throw new Error('No encontré ese gasto.')
 }
 
 /** Un movimiento por id, o `null` si no existe (o no es de este usuario: lo filtra el RLS). */
@@ -135,7 +138,7 @@ export async function getMovimiento(id: string): Promise<MovimientoDetalle | nul
     .eq('id', id)
     .maybeSingle()
 
-  if (error) throw new Error(`No pude leer el movimiento: ${error.message}`)
+  if (error) fallaDb('leer el movimiento', error)
   return data ? aDominio(data as unknown as FilaDetalle) : null
 }
 
@@ -149,10 +152,11 @@ export async function actualizarMovimiento(
     banco: string | null
     tarjeta: string | null
     nota: string | null
+    puntual: boolean | null
   },
 ): Promise<void> {
   const supabase = await crearCliente()
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('movimientos')
     .update({
       fecha: m.fecha,
@@ -162,8 +166,11 @@ export async function actualizarMovimiento(
       banco: m.banco,
       tarjeta: m.tarjeta,
       nota: m.nota,
+      puntual: m.puntual,
     })
     .eq('id', id)
+    .select('id')
 
-  if (error) throw new Error(`No pude actualizar el movimiento: ${error.message}`)
+  if (error) fallaDb('actualizar el movimiento', error)
+  if (data.length === 0) throw new Error('No encontré ese gasto.')
 }

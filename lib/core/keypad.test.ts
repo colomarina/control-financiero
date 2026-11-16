@@ -8,6 +8,8 @@ import {
   mostrar,
   aCentavos,
   desdeCentavos,
+  aplicarEntrada,
+  desdeTexto,
   type Importe,
 } from './keypad'
 import { parsearImporte } from './dinero'
@@ -170,5 +172,85 @@ describe('desdeCentavos', () => {
     for (const c of [1, 75, 100, 150_000, 150_050, 99_999_999]) {
       expect(aCentavos(desdeCentavos(c))).toBe(c)
     }
+  })
+})
+
+describe('aplicarEntrada (teclado del sistema)', () => {
+  /** Simula tipear char por char como lo manda `beforeinput`. */
+  function teclear(texto: string, desde: Importe = IMPORTE_VACIO): Importe {
+    let i = desde
+    for (const c of texto) i = aplicarEntrada(i, 'insertText', c)
+    return i
+  }
+
+  it('los dígitos entran como en el keypad: en pesos', () => {
+    expect(mostrar(teclear('1500'))).toBe('1.500')
+    expect(aCentavos(teclear('1500'))).toBe(150_000)
+  })
+
+  it('la coma y el punto abren los centavos', () => {
+    expect(mostrar(teclear('12,5'))).toBe('12,5')
+    expect(mostrar(teclear('12.5'))).toBe('12,5')
+  })
+
+  it('un insertText de varios caracteres se aplica de a uno', () => {
+    expect(mostrar(aplicarEntrada(IMPORTE_VACIO, 'insertText', '1500,5'))).toBe('1.500,5')
+  })
+
+  it('borrar hacia atrás o adelante se come el último caracter', () => {
+    const i = teclear('1500')
+    expect(mostrar(aplicarEntrada(i, 'deleteContentBackward', null))).toBe('150')
+    expect(mostrar(aplicarEntrada(i, 'deleteContentForward', null))).toBe('150')
+  })
+
+  it('cortar o borrar por palabra vacía el importe', () => {
+    const i = teclear('1500')
+    expect(estaVacio(aplicarEntrada(i, 'deleteByCut', null))).toBe(true)
+    expect(estaVacio(aplicarEntrada(i, 'deleteWordBackward', null))).toBe(true)
+  })
+
+  it('pegar reemplaza todo y tolera el formato con miles', () => {
+    const i = teclear('99')
+    expect(aCentavos(aplicarEntrada(i, 'insertFromPaste', '1.500,50'))).toBe(150_050)
+    expect(aCentavos(aplicarEntrada(i, 'insertFromPaste', '$ 2500'))).toBe(250_000)
+  })
+
+  it('ignora letras y lo que no reconoce', () => {
+    const i = teclear('15')
+    expect(aplicarEntrada(i, 'insertText', 'a')).toEqual(i)
+    expect(aplicarEntrada(i, 'formatBold', null)).toEqual(i)
+  })
+})
+
+describe('desdeTexto', () => {
+  it('lee el formato que muestra la pantalla', () => {
+    expect(aCentavos(desdeTexto('1.500'))).toBe(150_000)
+    expect(aCentavos(desdeTexto('1.500,5'))).toBe(150_050)
+  })
+
+  it('texto vacío o basura da vacío', () => {
+    expect(estaVacio(desdeTexto(''))).toBe(true)
+    expect(estaVacio(desdeTexto('abc'))).toBe(true)
+  })
+})
+
+describe('desdeTexto con punto decimal (pegado en formato US)', () => {
+  it('un punto con 1 o 2 dígitos al final y sin coma es decimal', () => {
+    expect(aCentavos(desdeTexto('1500.50'))).toBe(150_050)
+    expect(aCentavos(desdeTexto('1500.5'))).toBe(150_050)
+    expect(aCentavos(desdeTexto('$ 99.90'))).toBe(9_990)
+  })
+
+  it('con 3 dígitos después del punto sigue siendo de miles', () => {
+    expect(aCentavos(desdeTexto('1.500'))).toBe(150_000)
+    expect(aCentavos(desdeTexto('1.500.000'))).toBe(150_000_000)
+  })
+
+  it('si hay coma, la coma manda y los puntos son miles', () => {
+    expect(aCentavos(desdeTexto('1.500,50'))).toBe(150_050)
+  })
+
+  it('pegar en formato US entra igual por aplicarEntrada', () => {
+    expect(aCentavos(aplicarEntrada(IMPORTE_VACIO, 'insertFromPaste', '1500.50'))).toBe(150_050)
   })
 })

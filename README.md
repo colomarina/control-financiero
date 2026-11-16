@@ -111,7 +111,7 @@ en Environment Variables. No hace falta nada más.
 
 ## Estado
 
-Etapas 0–5 completas: movimientos, topes, predicción B+E, presupuesto, historial, fijos,
+Etapas 0–5 completas: movimientos, topes, predicción del cierre, presupuesto, historial, fijos,
 gráficos, PWA instalable, teclado numérico y búsqueda con filtros. El export a CSV se
 descartó (ver [`PENDIENTES.md`](./docs/PENDIENTES.md)).
 

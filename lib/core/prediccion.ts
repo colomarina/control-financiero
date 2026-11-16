@@ -1,32 +1,68 @@
 import type { MovimientoDetalle } from '@/lib/schemas/movimiento'
 import type { GastoFijoDetalle } from '@/lib/schemas/gastoFijo'
-import { diasDelMes, mesesAnteriores, type Mes } from './fechas'
-import { TOPE_DE_FORMA_PAGO, movimientosDelMes, gastoContraTope } from './gastos'
-import { fijosYaPagados } from './fijos'
-import { sumar } from './dinero'
-import { esCuota, type Cuota } from './cuotas'
+import { diasDelMes, type Mes } from './fechas'
+import { gastoContraTope } from './gastos'
+import { fijosPendientes as fijosPendientesDelMes } from './fijos'
+import type { Cuota } from './cuotas'
+import {
+  comerciosConFijo,
+  desgloseMes,
+  perfilHistorico,
+  type PerfilHistorico,
+  type Tope,
+} from './puntuales'
+
+export { DIAS_PUNTUAL } from './puntuales'
 
 /**
- * MÉTODO B+E — cierre estimado del mes.
+ * CIERRE ESTIMADO DEL MES — base + ritmo mezclado + puntuales esperados.
  *
- * Es la hoja "Prediccion" del Excel, puesta en código:
+ * Parte de la hoja "Prediccion" del Excel (B + E), con dos arreglos: las
+ * compras puntuales van aparte y el ritmo se mezcla con el histórico.
  *
- *   B (Base)  = lo que YA gastaste + los gastos fijos que todavía faltan pagar
- *   E (Extra) = tu ritmo de gasto variable por día × los días que quedan
+ * Qué es cada cosa (todo contra un mismo tope, todo en centavos):
  *
- *   cierre = B + E × factor del escenario
+ *   variable(m) = movimiento REAL del tope que no es cuota, ni de un comercio
+ *                 `es_fijo`, ni de un comercio con gasto fijo activo
+ *   puntual(m)  = m.puntual ?? (importe > umbral)     ← la marca manual manda
+ *   umbral      = DIAS_PUNTUAL × mediana de los ritmos diarios brutos de los
+ *                 meses históricos (ver `puntuales.ts`)
  *
- * El ritmo variable sale de descontarle a lo gastado los fijos ya pagados y
- * las cuotas del mes: ni unos ni otras se repiten, así que proyectarlos como
- * si fueran gasto diario infla la estimación. Una cuota en particular es
- * plata grande y de una sola vez —una compra puntual, financiada— que no
- * dice nada sobre cuánto gastás por día; dejarla en el ritmo variable
- * convierte un pico de un día en un "todos los días gastás así".
+ *   ritmoHist     = promedio en el histórico de (variable − puntuales) / días del mes
+ *   puntualesHist = promedio mensual de puntuales en el histórico
+ *   ritmoMes      = (variable − puntuales) del mes / día actual
+ *   ritmo         = (PESO_HISTORICO_DIAS·ritmoHist + día·ritmoMes) / (PESO_HISTORICO_DIAS + día)
  *
- * Diferencia con el Excel (a propósito): el Excel proyecta desde el día 1, y
- * con dos días de datos el ritmo diario es ruido puro. Acá, antes de
- * `umbralDia`, la predicción devuelve `temprano` en vez de un número que no
- * se sostiene.
+ *   restantes = días del mes − día actual
+ *   esperados = max(0, puntualesHist − puntuales del mes) × restantes / días del mes
+ *   base      = gastado del tope (todo: fijos, cuotas, puntuales) + fijos pendientes
+ *
+ *   optimista = base + ritmo·restantes·0,85
+ *   normal    = base + ritmo·restantes      + esperados
+ *   pesimista = base + ritmo·restantes·1,25 + esperados
+ *
+ * Por qué así:
+ *
+ * - Una compra puntual (la tele, el pasaje) es plata de una sola vez. Metida
+ *   en el ritmo convierte un pico de un día en "todos los días gastás así":
+ *   una TV el día 5 multiplicaba por cuatro la proyección. Ya está en el
+ *   `gastado`; lo que se proyecta es solo lo que se repite.
+ * - Pero los meses sí suelen traer alguna puntual. `esperados` suma la parte
+ *   proporcional a los días que quedan de lo que *solés* gastar en puntuales y
+ *   todavía no gastaste. El escenario optimista supone que no llega ninguna.
+ * - El ritmo del mes con pocos días es ruido. En vez de esperar a un día fijo,
+ *   el histórico vale como `PESO_HISTORICO_DIAS` días de datos: el día 1 manda
+ *   casi todo el histórico y a fin de mes, casi todo el mes. Sin histórico no
+ *   hay con qué mezclar, así que antes de `DIAS_MINIMOS_SIN_HISTORICO` la
+ *   respuesta es `temprano`.
+ * - Las cuotas y los fijos son plata comprometida, no ritmo: entran a la base
+ *   (las cuotas por el `gastado`, los fijos que faltan como pendientes) y
+ *   nunca al ritmo. La clasificación —variable, puntual, histórico— corre
+ *   solo sobre movimientos reales.
+ * - Los fijos pendientes pesan solo contra tarjeta: son débitos automáticos.
+ *
+ * El rango optimista–pesimista se angosta solo a medida que pasa el mes: el
+ * factor del escenario aplica únicamente al tramo proyectado.
  */
 
 /** Los tres escenarios de cierre, como multiplicadores del tramo variable. */
@@ -38,101 +74,11 @@ export const FACTOR_ESCENARIO = {
 
 export type Escenario = keyof typeof FACTOR_ESCENARIO
 
-/**
- * Lo ya gastado del mes que **no es variable**: los fijos ya pagados más las
- * cuotas del mes, todo contra el mismo `tope`. Es lo que hay que descontarle
- * al gastado para que quede el ritmo del día a día.
- *
- * Es la **unión** de esos dos conjuntos de movimientos, no la suma de dos
- * listas que pueden superponerse: si un comercio es fijo y además tiene una
- * compra en cuotas, contar la cuota de los dos lados la descuenta dos veces y
- * la tasa se hunde (en el peor caso a cero) sin que nada falle. Por eso acá
- * `fijosYaPagados` recibe `movsReales`, y por eso además `fijos.ts` descarta
- * las cuotas por su cuenta: con las dos cosas, los dos sumandos son disjuntos
- * aunque a esta función le llegue la lista mezclada.
- *
- * Vive acá y no en la página para que el test de esta regla pruebe el código
- * que la página efectivamente corre: componerla a mano en el Home dejaba al
- * test copiando la cuenta en vez de llamarla, y cualquier cambio en la página
- * pasaba en verde.
- */
-export function gastoNoVariable(
-  fijos: GastoFijoDetalle[],
-  movsReales: MovimientoDetalle[],
-  cuotasMes: Cuota[],
-  mes: Mes,
-  tope: 'tarjeta' | 'efectivo',
-): number {
-  return fijosYaPagados(fijos, movsReales, mes, tope) + gastoContraTope(cuotasMes, mes, tope)
-}
+/** Cuántos días de datos "vale" el ritmo histórico al mezclarlo con el del mes. */
+export const PESO_HISTORICO_DIAS = 7
 
-/**
- * El ritmo de gasto variable por día en lo que va del mes.
- *
- * `fijosYaPagados` tiene que venir filtrado por el MISMO tope que `gastadoReal`
- * (el Excel no lo hacía: restaba fijos pagados por transferencia del gasto de
- * tarjeta, y el ritmo salía bajo o negativo).
- *
- * A pesar del nombre, lo que se le pasa en `fijosYaPagados` es "lo ya gastado
- * que no es variable": lo que devuelve `gastoNoVariable`, fijos más cuotas.
- *
- * Nunca devuelve negativo: si pagaste más fijos que gasto total, el ritmo es 0.
- */
-export function tasaVariableDiaria(args: {
-  gastadoReal: number
-  fijosYaPagados: number
-  diaActual: number
-}): number {
-  const { gastadoReal, fijosYaPagados, diaActual } = args
-  if (diaActual <= 0) return 0
-  return Math.max(0, (gastadoReal - fijosYaPagados) / diaActual)
-}
-
-/**
- * El ritmo diario promedio de los `nMeses` meses cerrados anteriores.
- *
- * Sirve para el arranque del mes, cuando todavía no hay suficientes días para
- * que el ritmo propio signifique algo. Solo promedia los meses que tuvieron
- * movimientos: un mes vacío bajaría el promedio sin motivo.
- *
- * Igual que con el ritmo del mes en curso, las cuotas de esos meses viejos
- * quedan afuera: son el mismo pico puntual de siempre, solo que ya pasado.
- */
-export function promedioHistoricoDiario(
-  movs: MovimientoDetalle[],
-  mesActual: Mes,
-  nMeses = 3,
-  tope: 'tarjeta' | 'efectivo' = 'tarjeta',
-): number {
-  const tasas: number[] = []
-  for (const mes of mesesAnteriores(mesActual, nMeses)) {
-    const delMes = movimientosDelMes(movs, mes)
-    if (delMes.length === 0) continue
-    const variable = sumar(
-      ...delMes
-        .filter((m) => !m.esFijo && !esCuota(m) && TOPE_DE_FORMA_PAGO[m.formaPago] === tope)
-        .map((m) => m.importeCentavos),
-    )
-    tasas.push(variable / diasDelMes(mes))
-  }
-  if (tasas.length === 0) return 0
-  return sumar(...tasas) / tasas.length
-}
-
-/**
- * Qué ritmo diario usar hoy: el propio del mes si ya hay suficientes días,
- * el histórico si todavía es temprano.
- */
-export function tasaDiariaAplicable(args: {
-  tasaMesActual: number
-  promHistorico: number
-  diaActual: number
-  umbralDia: number
-}): number {
-  const { tasaMesActual, promHistorico, diaActual, umbralDia } = args
-  if (diaActual >= umbralDia) return tasaMesActual
-  return promHistorico > 0 ? promHistorico : tasaMesActual
-}
+/** Sin histórico, desde qué día el ritmo del mes alcanza para proyectar. */
+export const DIAS_MINIMOS_SIN_HISTORICO = 7
 
 export type Prediccion =
   | {
@@ -143,33 +89,41 @@ export type Prediccion =
     }
   | {
       status: 'proyeccion'
-      /** B: gastado + fijos pendientes. No depende del escenario. */
+      /** Gastado del tope + fijos pendientes. No depende del escenario. */
       base: number
       optimista: number
       normal: number
       pesimista: number
-      tasaDiaria: number
+      /** Ritmo variable mezclado, redondeado para mostrar. */
+      ritmoDiario: number
+      /** Puntuales que se esperan en los días que quedan, redondeado para mostrar. */
+      puntualesEsperados: number
       diasRestantes: number
     }
 
 /**
- * El cierre estimado del mes. Todo en centavos.
+ * El cierre estimado del mes a partir de los números ya clasificados.
  *
- * Antes de `umbralDia` devuelve `temprano`: hay muy pocos días como para
- * proyectar un ritmo. Después devuelve los tres escenarios.
+ * `variableMes` es el variable del mes **sin** puntuales; `puntualesMes`, el
+ * total de las puntuales. Los escenarios se calculan con los valores sin
+ * redondear y se redondean al final; `ritmoDiario` y `puntualesEsperados` se
+ * devuelven redondeados solo para mostrarlos.
  */
 export function prediccionCierre(args: {
-  gastadoReal: number
+  gastado: number
   fijosPendientes: number
-  tasaDiaria: number
+  variableMes: number
+  puntualesMes: number
+  perfil: PerfilHistorico
   diaActual: number
   diasMes: number
-  umbralDia: number
 }): Prediccion {
-  const { gastadoReal, fijosPendientes, tasaDiaria, diaActual, diasMes, umbralDia } = args
+  const { gastado, fijosPendientes, variableMes, puntualesMes, perfil, diaActual, diasMes } =
+    args
+  const conHistorico = perfil.meses > 0
 
-  if (diaActual < umbralDia) {
-    const faltan = umbralDia - diaActual
+  if (!conHistorico && diaActual < DIAS_MINIMOS_SIN_HISTORICO) {
+    const faltan = DIAS_MINIMOS_SIN_HISTORICO - diaActual
     return {
       status: 'temprano',
       diasParaProyectar: faltan,
@@ -179,19 +133,71 @@ export function prediccionCierre(args: {
     }
   }
 
-  const base = gastadoReal + fijosPendientes
-  const diasRestantes = Math.max(0, diasMes - diaActual)
-  const proyectar = (f: number) => Math.round(base + tasaDiaria * diasRestantes * f)
+  const dia = Math.max(0, diaActual)
+  const ritmoMes = dia > 0 ? variableMes / dia : 0
+  const ritmo = conHistorico
+    ? (PESO_HISTORICO_DIAS * perfil.ritmoDiario + dia * ritmoMes) / (PESO_HISTORICO_DIAS + dia)
+    : ritmoMes
+
+  const diasRestantes = Math.max(0, diasMes - dia)
+  const esperados =
+    diasMes > 0
+      ? (Math.max(0, perfil.puntualesPorMes - puntualesMes) * diasRestantes) / diasMes
+      : 0
+  const base = gastado + fijosPendientes
+  const tramo = ritmo * diasRestantes
 
   return {
     status: 'proyeccion',
     base,
-    optimista: proyectar(FACTOR_ESCENARIO.optimista),
-    normal: proyectar(FACTOR_ESCENARIO.normal),
-    pesimista: proyectar(FACTOR_ESCENARIO.pesimista),
-    tasaDiaria,
+    optimista: Math.round(base + tramo * FACTOR_ESCENARIO.optimista),
+    normal: Math.round(base + tramo * FACTOR_ESCENARIO.normal + esperados),
+    pesimista: Math.round(base + tramo * FACTOR_ESCENARIO.pesimista + esperados),
+    ritmoDiario: Math.round(ritmo),
+    puntualesEsperados: Math.round(esperados),
     diasRestantes,
   }
+}
+
+export interface PrediccionTope {
+  prediccion: Prediccion
+  /** Las compras puntuales del mes en este tope, para listarlas aparte. */
+  puntualesMes: MovimientoDetalle[]
+}
+
+/**
+ * La predicción de un tope armada desde los datos crudos, tal como la corre
+ * la página: vive acá para que el test pruebe la composición real.
+ *
+ * `movsReales` son solo movimientos (incluye el histórico); las cuotas del mes
+ * entran únicamente al `gastado`. Los fijos pendientes pesan solo contra
+ * tarjeta.
+ */
+export function prediccionDelTope(args: {
+  movsReales: MovimientoDetalle[]
+  cuotasMes: Cuota[]
+  fijos: GastoFijoDetalle[]
+  mes: Mes
+  tope: Tope
+  mesesHistorico: number
+  diaActual: number
+}): PrediccionTope {
+  const { movsReales, cuotasMes, fijos, mes, tope, mesesHistorico, diaActual } = args
+  const conFijo = comerciosConFijo(fijos)
+  const perfil = perfilHistorico(movsReales, mes, mesesHistorico, tope, conFijo)
+  const desglose = desgloseMes(movsReales, mes, tope, conFijo, perfil.umbral)
+
+  const prediccion = prediccionCierre({
+    gastado: gastoContraTope([...movsReales, ...cuotasMes], mes, tope),
+    fijosPendientes: tope === 'tarjeta' ? fijosPendientesDelMes(fijos, movsReales, mes) : 0,
+    variableMes: desglose.variable,
+    puntualesMes: desglose.totalPuntuales,
+    perfil,
+    diaActual,
+    diasMes: diasDelMes(mes),
+  })
+
+  return { prediccion, puntualesMes: desglose.puntuales }
 }
 
 /**

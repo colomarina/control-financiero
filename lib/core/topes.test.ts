@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { estadoTope, restanteTope, porcentajeBarra, resumenTope } from './topes'
+import { estadoTope, restanteTope, porcentajeBarra, resumenTope, disponiblePorDia } from './topes'
 
 describe('estadoTope', () => {
   it('es ok bien por debajo del tope', () => {
@@ -69,5 +69,23 @@ describe('resumenTope', () => {
       estado: 'cerca',
       porcentajeBarra: 90,
     })
+  })
+})
+
+describe('disponiblePorDia', () => {
+  it('reparte el margen entre los días que quedan', () => {
+    expect(disponiblePorDia(30_000_000, 15)).toBe(2_000_000)
+  })
+
+  it('sin margen no hay por día', () => {
+    expect(disponiblePorDia(0, 10)).toBe(0)
+  })
+
+  it('nunca divide por 0', () => {
+    expect(disponiblePorDia(1_000_000, 0)).toBe(1_000_000)
+  })
+
+  it('redondea hacia abajo', () => {
+    expect(disponiblePorDia(100, 3)).toBe(33)
   })
 })

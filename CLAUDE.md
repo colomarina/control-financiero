@@ -120,7 +120,7 @@ Al inicializar shadcn y agregar componentes, seguir estas reglas:
    `schema.sql` + auth magic link, `dinero.ts`/`fechas.ts` con tests.
 1. **Movimientos** (corazón): schemas + repositorio + `gastos.ts` + action `crearMovimiento` +
    pantalla Cargar + Home con barras de topes.
-2. **Predicción**: `prediccion.ts` (B+E) con tests + mostrarla en Home.
+2. **Predicción**: `prediccion.ts` con tests + mostrarla en Home.
 3. **Presupuesto**: repositorio + `presupuesto.ts` + pantalla con mes objetivo.
 4. **Historial + fijos + gráficos** (Recharts).
 5. **Pulido**: PWA, búsqueda, filtros, export.
@@ -183,19 +183,52 @@ para la predicción —`falta` lo prorratea por las facturas pendientes— y el 
 contra lo esperado se muestra como dato (`desvioPct`), no como deuda. Hay un
 estado `parcial` que el Excel no distinguía: llegó alguna factura, no todas.
 
-**Predicción — método B+E** (`lib/core/prediccion.ts`):
+**Predicción — base + ritmo mezclado + puntuales** (`lib/core/prediccion.ts`, con la
+clasificación de compras en `lib/core/puntuales.ts`):
 
 ```
-B (Base)  = gastado del mes + fijos pendientes
-E (Extra) = ritmo variable diario × días restantes × factor
-cierre    = B + E      factores: optimista 0,85 · normal 1,00 · pesimista 1,25
+variable(m)   = movimiento real del tope, que NO es cuota, NO es comercio es_fijo
+                y NO es de un comercio con gasto fijo activo
+puntual(m)    = m.puntual ?? (m.importe > umbral)          ← la marca manual manda
+umbral        = DIAS_PUNTUAL (5) × mediana de los ritmos diarios brutos de los meses históricos
+
+ritmoHist     = promedio, en los meses históricos, de (variable − puntuales) / días del mes
+puntualesHist = promedio mensual de puntuales en esos meses
+ritmoMes      = (variable − puntuales) del mes / día actual
+ritmo         = (PESO_HISTORICO_DIAS·ritmoHist + día·ritmoMes) / (PESO_HISTORICO_DIAS + día)
+
+restantes     = días del mes − día actual
+esperados     = max(0, puntualesHist − puntuales del mes) × restantes / días del mes
+base          = gastado del tope (todo: fijos, cuotas, puntuales) + fijos pendientes
+optimista     = base + ritmo·restantes·0,85
+normal        = base + ritmo·restantes      + esperados
+pesimista     = base + ritmo·restantes·1,25 + esperados
 ```
 
-El ritmo variable diario es `(gastado − fijos ya pagados) / día actual`, contando
-solo lo que pesa contra el mismo tope. Antes de `config.umbral_dia` la predicción
-devuelve `temprano` en lugar de un número: con pocos días el ritmo es ruido.
-Lo que se descuenta ahí no son solo los fijos: es `gastoNoVariable`
-(`prediccion.ts`), la **unión** de fijos ya pagados y cuotas del mes.
+Los fijos pendientes pesan solo contra tarjeta (son débitos automáticos): el cierre de
+efectivo usa `fijosPendientes = 0`.
+
+Las constantes: `DIAS_PUNTUAL = 5`, `PESO_HISTORICO_DIAS = 7`,
+`DIAS_MINIMOS_SIN_HISTORICO = 7`.
+
+- **Por qué cambió.** El Excel proyectaba desde el día 1, con el ritmo hecho ruido. La
+  versión B+E que lo reemplazó (ritmo = `(gastado − fijos pagados) / día`, con un
+  `umbral_dia` fijo) tenía el defecto inverso: una compra grande se proyectaba como gasto
+  diario —una tele el día 5 multiplicaba por cuatro el cierre estimado—.
+- **El umbral de puntual es en "días de gasto", no en múltiplos del ticket.** "3× la mediana
+  del ticket" (lo primero que se probó) marcaba entre 2 y 9 compras por mes con los datos
+  reales: un supermercado normal ya pasaba. "5 días de tu gasto normal" marca una por mes,
+  estable, y tomar la mediana *entre meses* evita que un mes con una compra enorme suba el
+  umbral.
+- **Marca manual**: `movimientos.puntual` es `null` (la app decide por el umbral), `true` o
+  `false` (el usuario lo forzó). Se edita con el switch "Compra puntual" del único
+  `FormGasto`, que además lo sugiere cuando el monto supera el umbral.
+- **No hay día mínimo configurable.** El histórico vale `PESO_HISTORICO_DIAS` días de datos:
+  el día 1 manda casi todo el histórico y a fin de mes casi todo el mes. Sin histórico no hay
+  con qué mezclar, y antes de `DIAS_MINIMOS_SIN_HISTORICO` la predicción devuelve `temprano`:
+  el único caso que queda. `config.umbral_dia` sigue en la tabla pero ya nada lo lee.
+- Las cuotas y los fijos son plata comprometida: entran a la base y **nunca** al ritmo. El
+  rango optimista–pesimista se angosta solo, porque el factor aplica solo al tramo proyectado.
 
 **Compras en cuotas — quién recibe las cuotas derivadas y quién no.** Una compra
 en cuotas se guarda **una sola vez** (`compras_cuotas`); las cuotas no se guardan
@@ -207,14 +240,20 @@ tira error, nada se pone en rojo — simplemente la pantalla informa mal la plat
 
 | Pantalla | Qué recibe |
 |---|---|
-| Home: topes, lista ordenada, promedio histórico | movimientos **+** cuotas (hasta el mes actual) |
+| Home: topes, lista ordenada | movimientos **+** cuotas (hasta el mes actual) |
+| Home: cierre estimado (`prediccionDelTope`: ritmo, puntuales, histórico, umbral) | **solo movimientos reales**; las cuotas entran únicamente al `gastado` del tope |
 | Historial: mes a mes, promedio, gráfico, categorías, buscador | movimientos **+** cuotas, **cortando en el mes actual** |
 | Checklist de fijos (`lib/core/fijos.ts`) | **solo movimientos reales** |
 | `/presupuesto` | **solo movimientos reales** |
 | Atajos de comercio en `/cargar` | **solo movimientos reales** |
+| Umbral de compra puntual (`/cargar`, `/movimiento/[id]`) | **solo movimientos reales** |
 
 Cada fila, con su porqué:
 
+- **El cierre estimado y el umbral de puntual no ven cuotas** porque una compra en 12
+  cuotas inflaría el ritmo y el umbral durante un año entero. `esVariable` ya descarta
+  las cuotas, pero la regla no puede depender de eso: la lista se filtra antes de entrar.
+  La cuota sí pesa en el `gastado` del tope, que es lo que se debe.
 - **El Historial corta en el mes actual** porque `promedioMensual` excluye un solo
   mes, el marcado `enCurso`. Los meses futuros que una compra en cuotas ya tiene
   comprometidos entrarían al promedio **como meses cerrados**, y el número de
@@ -334,6 +373,9 @@ manda el gasto al día siguiente.
     - Cuando typescript-estree acepte la 11 por su cuenta, el override sobra.
 - **Next 16**: `middleware` se llama `proxy` (`proxy.ts` en la raíz). Cache Components
   está apagado a propósito para que valga el flujo clásico con `revalidatePath`.
+- **La sesión se verifica con `getClaims()`** (firma ES256 validada en local contra el
+  JWKS cacheado, en `proxy.ts` y en `usuarioActual`), nunca con `getSession()`, que no valida
+  nada. `cambiarPassword` sigue con `updateUser` + `current_password`.
 - **Un solo umbral de semáforo**: `config.umbral_cerca_pct` (default 85). El Excel
   original tenía 0,80 / 0,85 / 0,90 conviviendo.
 - **Gráficos**: la paleta del design system reserva verde/ámbar/rojo para el semáforo y
@@ -354,6 +396,10 @@ plan Free de Supabase no hace backups automáticos.
 - **Cambio de contraseña** en `/config` (`cambiarPassword` en `app/actions/auth.ts`), que
   valida la actual con `current_password`. No hay signup: el usuario se crea desde el
   dashboard de Supabase.
+- **Registro cerrado en Supabase** (2026-11-16): la app no tenía pantalla de alta, pero la
+  API de auth sí aceptaba registros. Ahora *Allow new users to sign up* está apagado. Se
+  verifica con `GET <SUPABASE_URL>/auth/v1/settings` (header `apikey` = anon key): tiene
+  que dar `"disable_signup":true`.
 - **`cn` corre sobre tablas precompiladas** (`lib/utils.ts` + `lib/cn-tables.mjs`, que genera
   `npm run cn:build`). tailwind-merge solo conoce la escala de texto built-in, así que
   cualquier `text-algo` del `@theme` le parecía un color: `cn('text-keypad-digits
@@ -421,13 +467,29 @@ plan Free de Supabase no hace backups automáticos.
     (`AltaFijo`, `AltaLineaPlan`) lo usan **controlado** y limpian el estado a mano:
     `reset()` no toca un componente nuestro, y el comercio quedaba pegado del alta anterior.
 - **Atajos de comercio** en Cargar: `lib/core/frecuentes.ts` (puro, con test) ordena por usos
-  y desempata por el más reciente. La pantalla pasa los movimientos de dos meses; si no hay
-  ninguno, la grilla no se dibuja y queda el buscador de siempre.
-- **Teclado numérico del importe**: `components/Keypad.tsx` sobre `lib/core/keypad.ts`
-  (puro, con test). Se tipea en **pesos**, no en centavos: `1500` es $1.500 y los centavos
-  solo aparecen si se aprieta la coma. El form manda el texto formateado (`mostrar()`) y la
-  action lo pasa por `parsearImporte`; ese ida y vuelta está testeado, no romperlo.
-  Ya no existe el `keypad-digits` "pendiente" del `DESIGN_SYSTEM.md`.
+  y desempata por el más reciente. Son **dos**, una sola fila: seis empujaban la forma de pago
+  fuera de la pantalla. La pantalla pasa los movimientos de dos meses; si no hay ninguno, la
+  grilla no se dibuja y queda el buscador de siempre.
+- **Forma de pago**: dos botones con las más usadas (`formasDePagoFrecuentes`, mismo criterio
+  que los comercios, siempre devuelve dos) y un `CampoSelect` con las otras tres. En un alta,
+  elegir el comercio preselecciona la forma con que se lo pagó la última vez
+  (`ultimaFormaPorComercio`); al editar no se toca, porque ya es un dato cargado. Las dos
+  salen de **movimientos reales**: una compra en cuotas no es una elección de forma de pago
+  que se repita.
+- **Importe con el teclado del sistema**: `components/CampoImporte.tsx` sobre
+  `lib/core/keypad.ts` (puro, con test). Antes era un teclado propio de 12 teclas en pantalla
+  (`Keypad`): ocupaba media pantalla siempre. Ahora es un campo con `inputMode="decimal"`
+  que **cancela cada `beforeinput`** y lo traduce con `aplicarEntrada`, así las reglas son las
+  mismas que tenía el teclado propio: se tipea en **pesos**, no en centavos (`1500` es $1.500),
+  los centavos solo con coma —el punto vale como coma, porque muchos teclados numéricos solo
+  traen punto y los miles los pone la pantalla—. El form manda el texto formateado
+  (`mostrar()`) y la action lo pasa por `parsearImporte`; ese ida y vuelta está testeado, no
+  romperlo.
+  - En un alta arranca enfocado (`autoFocus`). En iPhone igual hace falta tocar el monto: Safari
+    no abre el teclado sin un toque. Al editar no se enfoca solo, para no tapar el resto.
+  - Enter cierra el teclado en vez de mandar el formulario a medio llenar.
+- **"Compra puntual" lleva una ⓘ con popover** que explica qué es. Popover y no tooltip:
+  en el celular no hay hover.
 - **PWA** (etapa 5, primera parte): `app/manifest.ts`, `public/sw.js` + `RegistrarSW`, e
   íconos generados por `npm run iconos` (`scripts/generar-iconos.ts`, PNG a mano con zlib,
   sin dependencias). Los de `public/` los referencia el manifest; los de `app/`

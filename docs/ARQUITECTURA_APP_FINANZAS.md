@@ -53,7 +53,7 @@ control-financiero/
 │   │   ├── fechas.ts             # mes de una fecha, días del mes, día actual
 │   │   ├── topes.ts              # estado OK/Cerca/Excedido
 │   │   ├── gastos.ts             # gastoTarjetaMes, gastoEfectivoMes, porCategoria, porComercio
-│   │   ├── prediccion.ts         # método B+E completo
+│   │   ├── prediccion.ts         # método B+E original (hoy: ritmo mezclado + puntuales; ver CLAUDE.md)
 │   │   ├── presupuesto.ts        # presupuestoVsReal
 │   │   └── *.test.ts             # tests Vitest al lado de cada archivo
 │   │
@@ -156,7 +156,7 @@ Poné esto en un `CLAUDE.md` en la raíz del repo (Claude Code lo lee solo):
 > Entregable: cargás gastos del cel y ves cómo venís vs topes. Ya la usás en paralelo al Excel.
 
 ### Etapa 2 — Predicción
-1. `/lib/core/prediccion.ts` con método B+E + tests (casos: antes del umbral, después, sin histórico).
+1. `/lib/core/prediccion.ts` con el método de predicción + tests (casos: con histórico, sin histórico, antes de `DIAS_MINIMOS_SIN_HISTORICO`). El diseño original era B+E con un `umbral_dia`; se reemplazó (ver CLAUDE.md).
 2. Mostrar cierre estimado / aviso temprano en el Home.
 > Entregable: la predicción B+E en código limpio y testeado.
 
@@ -199,9 +199,10 @@ gastoPorComercio(movs: Movimiento[], mes: string): Map<string, number>
 
 // prediccion.ts
 promedioHistoricoDiario(movs: Movimiento[], mesActual: string, nMeses?: number): number
+// Firma original de la etapa 2; la actual compone `prediccionDelTope` (ver CLAUDE.md).
 prediccionCierre(args: {
   gastadoReal: number; fijosPendientes: number; promHistorico: number;
-  diaActual: number; diasMes: number; umbralDia: number;
+  diaActual: number; diasMes: number;
 }): { status: 'temprano'; mensaje: string }
  | { status: 'proyeccion'; optimista: number; normal: number; pesimista: number }
 

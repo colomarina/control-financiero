@@ -1,6 +1,6 @@
 'use client'
 
-import { useId, useRef, useState, useTransition } from 'react'
+import { useEffect, useId, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import {
@@ -16,6 +16,7 @@ import {
 import {
   FORMAS_PAGO,
   ETIQUETA_FORMA_PAGO,
+  formaPagoSchema,
   type FormaPago,
   type MovimientoDetalle,
 } from '@/lib/schemas/movimiento'
@@ -23,7 +24,9 @@ import type { CompraCuotasDetalle } from '@/lib/schemas/compraCuotas'
 import type { Comercio } from '@/lib/schemas/comercio'
 import { Card, TituloCard, Banner, campo, botonPrimario } from '@/components/ds'
 import { Icono } from '@/components/Icono'
-import { Keypad } from '@/components/Keypad'
+import { CampoImporte, type CampoImporteHandle } from '@/components/CampoImporte'
+import { CampoSelect } from '@/components/CampoSelect'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { CampoFecha } from '@/components/CampoFecha'
 import {
   IMPORTE_VACIO,
@@ -35,13 +38,16 @@ import {
 import { parsearImporte, formatoARS } from '@/lib/core/dinero'
 import { nombreMes } from '@/lib/core/fechas'
 import { resumenPlan } from '@/lib/core/cuotas'
+import { TOPE_DE_FORMA_PAGO } from '@/lib/core/gastos'
+import { formaPreseleccionada } from '@/lib/core/frecuentes'
+import type { Tope } from '@/lib/core/puntuales'
 import { cn } from '@/lib/utils'
 
 /**
  * El formulario de un gasto, que sirve para cargarlo y para editarlo.
  *
  * Pensado para usarse parado en la caja del super: importe primero y grande,
- * comercio a un tap, forma de pago en chips.
+ * comercio a un tap, forma de pago en chips (las dos de siempre) o en el select.
  *
  * Es uno solo a propósito. Si la edición tuviera su propio formulario, las dos
  * pantallas se irían separando —un campo nuevo acá, una validación distinta
@@ -54,6 +60,9 @@ export function FormGasto({
   movimiento,
   compra,
   minimoCuotas = 1,
+  umbrales = { tarjeta: null, efectivo: null },
+  formasFrecuentes = ['tarjeta_credito', 'tarjeta_debito'],
+  ultimaForma = {},
 }: {
   comercios: Comercio[]
   /** Atajos: los comercios más usados en los últimos dos meses. */
@@ -69,6 +78,15 @@ export function FormGasto({
    * necesita "hoy", y este componente es cliente— y no se usa fuera de ese modo.
    */
   minimoCuotas?: number
+  /**
+   * Desde qué importe (centavos) una compra se sugiere como puntual, por tope.
+   * `null` si no hay histórico. Sin usar al editar una compra en cuotas.
+   */
+  umbrales?: Record<Tope, number | null>
+  /** Las dos formas de pago más usadas: van como botones; el resto, en el select. */
+  formasFrecuentes?: FormaPago[]
+  /** Con qué se pagó cada comercio la última vez (id -> forma), para preseleccionar en un alta. */
+  ultimaForma?: Record<string, FormaPago>
 }) {
   // Tres modos: alta (ninguno de los dos), editar un movimiento suelto, o
   // editar una compra en cuotas. `base` junta los campos que movimiento y
@@ -92,6 +110,13 @@ export function FormGasto({
   const [saliendo, setSaliendo] = useState(false)
   /** Para que el botón de borrar no diga "Guardando…", que sería mentira. */
   const [borrando, setBorrando] = useState(false)
+  /**
+   * Borrar pide dos toques en vez del `confirm()` del sistema, que lo dibuja el
+   * SO y no se puede vestir. El primero arma la confirmación; si no llega el
+   * segundo en 4 s, se desarma sola.
+   */
+  const [confirmando, setConfirmando] = useState(false)
+  const temporizador = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pendiente = enTransicion || saliendo
   const [importe, setImporte] = useState<Importe>(
     movimiento
@@ -104,7 +129,9 @@ export function FormGasto({
   // cargar un gasto de ayer el siguiente arrancaría también en ayer. Cambiar
   // la key remonta el campo y vuelve a hoy.
   const [versionFecha, setVersionFecha] = useState(0)
-  const [formaPago, setFormaPago] = useState<FormaPago>(base?.formaPago ?? 'tarjeta_credito')
+  const [formaPago, setFormaPago] = useState<FormaPago>(
+    base?.formaPago ?? formasFrecuentes[0] ?? 'tarjeta_credito',
+  )
   const [comercioId, setComercioId] = useState(base?.comercioId ?? '')
   const [busqueda, setBusqueda] = useState(base?.comercio ?? '')
   // En alta arranca en 1 (un gasto de siempre); al editar una compra, en el
@@ -112,8 +139,14 @@ export function FormGasto({
   // oculto; este estado es la única copia que el resumen necesita leer.
   const [cuotas, setCuotas] = useState(compra?.cuotas ?? 1)
   const [fecha, setFecha] = useState(base?.fecha ?? hoy)
+  // `null` = sin decisión manual: manda la sugerencia por monto. Siempre viaja
+  // en el form (también al editar), o cada edición borraría una marca manual.
+  const [forzado, setForzado] = useState<boolean | null>(movimiento?.puntual ?? null)
+  // Una forma elegida a mano no la pisa la preselección por comercio.
+  const [formaTocada, setFormaTocada] = useState(false)
   const listaId = useId()
   const formRef = useRef<HTMLFormElement>(null)
+  const importeRef = useRef<CampoImporteHandle>(null)
 
   /**
    * El reset va acá y no en un efecto: limpiar el formulario es consecuencia
@@ -153,15 +186,39 @@ export function FormGasto({
       setVersionFecha((v) => v + 1)
       setFecha(hoy)
       setCuotas(1)
+      setForzado(null)
+      setFormaPago(formasFrecuentes[0] ?? 'tarjeta_credito')
+      setFormaTocada(false)
+      // Listo para el próximo gasto sin tener que tocar el monto.
+      importeRef.current?.enfocar()
     })
   }
 
+  function limpiarTemporizador() {
+    if (temporizador.current) clearTimeout(temporizador.current)
+    temporizador.current = null
+  }
+
+  // Si el componente se desmonta con la ventana abierta, no queda un
+  // setState colgado.
+  useEffect(() => limpiarTemporizador, [])
+
+  const mensajeBorrar = compra
+    ? `Se borra la compra en ${compra.comercio} y desaparecen también las cuotas que ya pasaron. No se puede deshacer.`
+    : base
+      ? `Se borra el gasto de ${base.comercio}. No se puede deshacer.`
+      : ''
+
   function borrar() {
     if (!base) return
-    const mensaje = compra
-      ? `¿Borrar la compra en ${compra.comercio}? Desaparecen también las cuotas que ya pasaron. No se puede deshacer.`
-      : `¿Borrar el gasto de ${base.comercio}? No se puede deshacer.`
-    if (!confirm(mensaje)) return
+    if (!confirmando) {
+      setConfirmando(true)
+      limpiarTemporizador()
+      temporizador.current = setTimeout(() => setConfirmando(false), 4000)
+      return
+    }
+    limpiarTemporizador()
+    setConfirmando(false)
 
     setBorrando(true)
     startTransition(async () => {
@@ -184,6 +241,25 @@ export function FormGasto({
     setBusqueda(valor)
     const hit = comercios.find((c) => c.nombre.toLowerCase() === valor.trim().toLowerCase())
     setComercioId(hit?.id ?? '')
+    if (hit) preseleccionarForma(hit.id)
+  }
+
+  /**
+   * En un alta, elegir el comercio trae la forma con que se lo pagó la última
+   * vez: Netflix cae en débito automático, la verdulería en efectivo. Al editar
+   * no se toca, porque la forma ya es un dato cargado.
+   */
+  function preseleccionarForma(id: string) {
+    const forma = formaPreseleccionada(ultimaForma, id, {
+      editando: base !== undefined,
+      tocada: formaTocada,
+    })
+    if (forma) setFormaPago(forma)
+  }
+
+  function elegirForma(f: FormaPago) {
+    setFormaPago(f)
+    setFormaTocada(true)
   }
 
   /**
@@ -194,9 +270,15 @@ export function FormGasto({
   function elegirComercio(c: Comercio) {
     setComercioId(c.id)
     setBusqueda(c.nombre)
+    preseleccionarForma(c.id)
   }
 
   const elegido = comercios.find((c) => c.id === comercioId)
+
+  const umbral = umbrales[TOPE_DE_FORMA_PAGO[formaPago]]
+  const importeCentavos = parsearImporte(mostrar(importe)) ?? 0
+  const sugerido = !elegido?.esFijo && umbral !== null && importeCentavos > umbral
+  const puntualActivo = forzado ?? sugerido
 
   return (
     <form ref={formRef} action={enviar} className="gap-space-md flex flex-col">
@@ -212,10 +294,22 @@ export function FormGasto({
           campo. Sí va en alta (venga o no a ser una compra) y al editar una
           compra, que siempre manda `cuotas`. */}
       {!movimiento && <input type="hidden" name="cuotas" value={cuotas} />}
+      {!esCompra && (
+        <input
+          type="hidden"
+          name="puntual"
+          value={forzado === null ? '' : forzado ? 'si' : 'no'}
+        />
+      )}
 
       <Card>
         <TituloCard>Importe</TituloCard>
-        <Keypad valor={importe} onChange={setImporte} />
+        <CampoImporte
+          ref={importeRef}
+          valor={importe}
+          onChange={setImporte}
+          autoFocus={!esEdicion}
+        />
       </Card>
 
       {/* Al editar un movimiento suelto no tiene sentido: convertir un gasto
@@ -272,8 +366,7 @@ export function FormGasto({
       <Card>
         <TituloCard>Comercio</TituloCard>
 
-        {/* Los habituales, a un tap. Con esto y el teclado numérico, cargar un
-            gasto de todos los días no necesita teclado en ningún momento. */}
+        {/* Los dos habituales, a un tap. Uno distinto se busca abajo. */}
         {frecuentes.length > 0 && (
           <div className="gap-space-sm grid grid-cols-2">
             {frecuentes.map((c) => (
@@ -346,11 +439,11 @@ export function FormGasto({
             Forma de pago
           </legend>
           <div className="gap-space-sm grid grid-cols-2">
-            {FORMAS_PAGO.map((f) => (
+            {formasFrecuentes.map((f) => (
               <button
                 key={f}
                 type="button"
-                onClick={() => setFormaPago(f)}
+                onClick={() => elegirForma(f)}
                 aria-pressed={formaPago === f}
                 className={cn(
                   'px-space-sm text-body-md rounded-lg py-3 transition-transform active:scale-95',
@@ -363,8 +456,83 @@ export function FormGasto({
               </button>
             ))}
           </div>
+          {/* Las otras tres, a un toque más. Si la elegida no es un botón, el
+              select la muestra; si lo es, queda en "Otra…". */}
+          <CampoSelect
+            titulo="Otra forma de pago"
+            placeholder="Otra…"
+            opciones={FORMAS_PAGO.filter((f) => !formasFrecuentes.includes(f)).map((f) => ({
+              valor: f,
+              etiqueta: ETIQUETA_FORMA_PAGO[f],
+            }))}
+            valor={formasFrecuentes.includes(formaPago) ? '' : formaPago}
+            onCambio={(v) => {
+              const forma = formaPagoSchema.safeParse(v)
+              if (forma.success) elegirForma(forma.data)
+            }}
+          />
         </fieldset>
       </Card>
+
+      {!esCompra && cuotas < 2 && (
+        <Card>
+          <div className="gap-space-md flex items-center justify-between">
+            <div className="gap-space-xs flex flex-col">
+              <div className="gap-space-xs flex items-center">
+                <span id="puntual-titulo" className="text-body-md text-on-surface">
+                  Compra puntual
+                </span>
+                {/* Un popover y no un tooltip: en el celular no hay hover. */}
+                <Popover>
+                  <PopoverTrigger
+                    type="button"
+                    aria-label="Qué es una compra puntual"
+                    className="text-on-surface-variant focus-visible:ring-primary -m-2.5 flex h-11 w-11 items-center justify-center rounded-full outline-none focus-visible:ring-2 active:scale-95"
+                  >
+                    <Icono nombre="info" className="text-[18px]" />
+                  </PopoverTrigger>
+                  <PopoverContent align="start" className="text-body-sm text-on-surface w-72">
+                    <p>
+                      Una compra grande que no se repite: una tele, un pasaje, un
+                      regalo. Suma al gasto del mes, pero no entra en tu ritmo
+                      diario, así el cierre estimado no la multiplica por los días
+                      que quedan.
+                    </p>
+                    <p className="text-on-surface-variant mt-space-sm">
+                      Se prende sola si el monto supera unos 5 días de tu gasto
+                      normal. Si no corresponde, apagala.
+                    </p>
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <span className="text-body-sm text-on-surface-variant">
+                {forzado === null && sugerido
+                  ? 'Lo marcamos por el monto'
+                  : 'No se proyecta al resto del mes'}
+              </span>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={puntualActivo}
+              aria-labelledby="puntual-titulo"
+              onClick={() => setForzado(!puntualActivo)}
+              className={cn(
+                'relative h-7 w-12 shrink-0 rounded-full transition-colors',
+                'focus-visible:ring-primary outline-none focus-visible:ring-2',
+                puntualActivo ? 'bg-primary' : 'bg-surface-container-high',
+              )}
+            >
+              <span
+                className={cn(
+                  'absolute top-1 left-1 h-5 w-5 rounded-full transition-transform',
+                  puntualActivo ? 'bg-on-primary translate-x-5' : 'bg-on-surface-variant',
+                )}
+              />
+            </button>
+          </div>
+        </Card>
+      )}
 
       <Card>
         <div className="gap-space-sm grid grid-cols-2">
@@ -419,15 +587,29 @@ export function FormGasto({
           type="button"
           onClick={borrar}
           disabled={pendiente}
-          className="text-error text-body-md gap-space-sm flex h-12 w-full items-center justify-center rounded-lg transition-transform active:scale-95 disabled:opacity-40"
+          className={cn(
+            'text-body-md gap-space-sm flex h-12 w-full items-center justify-center rounded-lg transition-transform active:scale-95 disabled:opacity-40',
+            confirmando ? 'bg-error text-on-error' : 'text-error',
+          )}
         >
           <Icono nombre={borrando ? 'hourglass_top' : 'delete'} className="text-[20px]" />
           {/* "Borrar gasto" alcanza para un movimiento: desaparece y listo. Una
               compra necesita la aclaración, porque bajar las cuotas (arriba)
               también borra algo —las que faltaban— y es la operación correcta
               para una baja o devolución. Esto es para "lo cargué mal". */}
-          {borrando ? 'Borrando…' : esCompra ? 'Borrar — lo cargué mal' : 'Borrar gasto'}
+          {borrando
+            ? 'Borrando…'
+            : confirmando
+              ? 'Tocá de nuevo para borrar'
+              : esCompra
+                ? 'Borrar — lo cargué mal'
+                : 'Borrar gasto'}
         </button>
+      )}
+      {esEdicion && confirmando && (
+        <p role="status" className="text-on-surface-variant text-body-sm text-center">
+          {mensajeBorrar}
+        </p>
       )}
     </form>
   )

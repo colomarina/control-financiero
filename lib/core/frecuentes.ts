@@ -1,11 +1,11 @@
 /**
  * Qué comercios ofrecer como atajo en la pantalla Cargar.
  *
- * La idea: en un mes típico los mismos cinco o seis comercios se repiten
- * (el super, la nafta, el delivery). Si están a un tap, cargar un gasto no
- * necesita teclado en ningún momento.
+ * La idea: en un mes típico unos pocos comercios se repiten (el super, la
+ * nafta, el delivery). Los dos más usados quedan a un tap; el resto, en el
+ * buscador. Lo mismo para la forma de pago.
  */
-import type { MovimientoDetalle } from '@/lib/schemas/movimiento'
+import { FORMAS_PAGO, type FormaPago, type MovimientoDetalle } from '@/lib/schemas/movimiento'
 import type { Comercio } from '@/lib/schemas/comercio'
 
 /**
@@ -26,7 +26,7 @@ import type { Comercio } from '@/lib/schemas/comercio'
 export function comerciosFrecuentes(
   movs: MovimientoDetalle[],
   disponibles: Comercio[],
-  n = 6,
+  n = 2,
 ): Comercio[] {
   const uso = new Map<string, { usos: number; ultimo: string }>()
 
@@ -53,4 +53,68 @@ export function comerciosFrecuentes(
       return a.nombre < b.nombre ? -1 : a.nombre > b.nombre ? 1 : 0
     })
     .slice(0, n)
+}
+
+/**
+ * Las formas de pago más usadas, para los botones de acceso rápido.
+ *
+ * Mismo criterio que `comerciosFrecuentes`: cantidad de usos y, a igual uso, la
+ * más reciente. Devuelve siempre `n`: si no hay uso suficiente completa con el
+ * orden de `FORMAS_PAGO`, así los botones no aparecen y desaparecen según el
+ * mes.
+ */
+export function formasDePagoFrecuentes(movs: MovimientoDetalle[], n = 2): FormaPago[] {
+  const uso = new Map<FormaPago, { usos: number; ultimo: string }>()
+  for (const m of movs) {
+    const previo = uso.get(m.formaPago)
+    if (previo) {
+      previo.usos++
+      if (m.fecha > previo.ultimo) previo.ultimo = m.fecha
+    } else {
+      uso.set(m.formaPago, { usos: 1, ultimo: m.fecha })
+    }
+  }
+
+  const usadas = [...uso.entries()]
+    .sort(([, a], [, b]) => {
+      if (b.usos !== a.usos) return b.usos - a.usos
+      return b.ultimo > a.ultimo ? 1 : b.ultimo < a.ultimo ? -1 : 0
+    })
+    .map(([f]) => f)
+
+  const resto = FORMAS_PAGO.filter((f) => !usadas.includes(f))
+  return [...usadas, ...resto].slice(0, n)
+}
+
+/**
+ * Con qué forma se pagó cada comercio la última vez: al elegir el comercio en
+ * un alta, el formulario la preselecciona (Netflix ya cae en débito
+ * automático, la verdulería en efectivo). A igual fecha gana el último de la
+ * lista.
+ */
+export function ultimaFormaPorComercio(movs: MovimientoDetalle[]): Record<string, FormaPago> {
+  const ultima = new Map<string, { fecha: string; forma: FormaPago }>()
+  for (const m of movs) {
+    const previo = ultima.get(m.comercioId)
+    if (!previo || m.fecha >= previo.fecha) {
+      ultima.set(m.comercioId, { fecha: m.fecha, forma: m.formaPago })
+    }
+  }
+  return Object.fromEntries([...ultima].map(([id, { forma }]) => [id, forma]))
+}
+
+/**
+ * Qué forma de pago poner al elegir un comercio, o `null` para no tocar nada.
+ *
+ * Solo en un alta y solo si la forma no se eligió a mano: la forma decide
+ * contra qué tope pesa el gasto, y pisar una elección del usuario lo cargaría
+ * en el tope equivocado sin que lo note.
+ */
+export function formaPreseleccionada(
+  ultimaForma: Record<string, FormaPago>,
+  comercioId: string,
+  estado: { editando: boolean; tocada: boolean },
+): FormaPago | null {
+  if (estado.editando || estado.tocada) return null
+  return ultimaForma[comercioId] ?? null
 }

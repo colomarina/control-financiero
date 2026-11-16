@@ -74,3 +74,11 @@ export function resumenTope(
     porcentajeBarra: porcentajeBarra(gastado, tope),
   }
 }
+
+/**
+ * Cuánto podés gastar por día sin pasarte del tope: el margen repartido entre
+ * los días que quedan, contando hoy. Nunca divide por 0.
+ */
+export function disponiblePorDia(margen: number, diasRestantesConHoy: number): number {
+  return Math.floor(margen / Math.max(1, diasRestantesConHoy))
+}

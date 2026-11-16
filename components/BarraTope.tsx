@@ -19,9 +19,12 @@ const LEYENDA: Record<EstadoTope, string> = {
 export function BarraTope({
   titulo,
   resumen,
+  porDia = null,
 }: {
   titulo: string
   resumen: ResumenTope
+  /** Cuánto se puede gastar por día hasta fin de mes (centavos). */
+  porDia?: number | null
 }) {
   const { gastado, tope, restante, estado, porcentajeBarra } = resumen
   const sinTope = tope <= 0
@@ -50,6 +53,11 @@ export function BarraTope({
               ? `Quedan ${formatoARS(restante)} de ${formatoARS(tope)}`
               : `Te pasaste ${formatoARS(-restante)} de ${formatoARS(tope)}`}
           </p>
+          {porDia != null && estado !== 'excedido' && (
+            <p className="text-body-sm text-on-surface-variant tabular-nums">
+              Podés gastar {formatoARS(porDia)} por día
+            </p>
+          )}
         </>
       )}
     </Card>

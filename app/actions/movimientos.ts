@@ -1,11 +1,12 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { z } from 'zod'
 
 import { nuevoMovimientoSchema } from '@/lib/schemas/movimiento'
 import { crearMovimiento, borrarMovimiento, actualizarMovimiento } from '@/lib/db/movimientos'
 import { parsearImporte } from '@/lib/core/dinero'
-import { texto } from '@/lib/formData'
+import { texto, triestado } from '@/lib/formData'
 
 export type EstadoForm =
   | { ok: true; mensaje: string }
@@ -31,6 +32,7 @@ export async function guardarMovimiento(
     banco: texto(formData, 'banco'),
     tarjeta: texto(formData, 'tarjeta'),
     nota: texto(formData, 'nota'),
+    puntual: triestado(formData, 'puntual'),
   })
 
   if (!parsed.success) {
@@ -58,10 +60,11 @@ export async function editarMovimiento(
   _estado: EstadoForm,
   formData: FormData,
 ): Promise<EstadoForm> {
-  const id = formData.get('id')
-  if (typeof id !== 'string' || id === '') {
-    return { ok: false, error: 'Falta el movimiento a editar.' }
+  const idValido = z.uuid().safeParse(formData.get('id'))
+  if (!idValido.success) {
+    return { ok: false, error: 'Ese gasto no existe.' }
   }
+  const id = idValido.data
 
   const importeCentavos = parsearImporte(String(formData.get('importe') ?? ''))
   if (importeCentavos === null) {
@@ -76,6 +79,7 @@ export async function editarMovimiento(
     banco: texto(formData, 'banco'),
     tarjeta: texto(formData, 'tarjeta'),
     nota: texto(formData, 'nota'),
+    puntual: triestado(formData, 'puntual'),
   })
 
   if (!parsed.success) {
@@ -94,9 +98,12 @@ export async function editarMovimiento(
   return { ok: true, mensaje: 'Gasto actualizado.' }
 }
 
-export async function eliminarMovimiento(id: string): Promise<EstadoForm> {
+export async function eliminarMovimiento(id: unknown): Promise<EstadoForm> {
+  const idValido = z.uuid().safeParse(id)
+  if (!idValido.success) return { ok: false, error: 'Ese gasto no existe.' }
+
   try {
-    await borrarMovimiento(id)
+    await borrarMovimiento(idValido.data)
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'No pude borrarlo.' }
   }

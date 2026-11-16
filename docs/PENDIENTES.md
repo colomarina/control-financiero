@@ -3,7 +3,8 @@
 Lo que queda. Cada tarea trae el contexto necesario para retomarla sin releer todo el
 proyecto.
 
-Lo ya terminado (etapas 0–4, deploy, cambio de contraseña) está en el `CLAUDE.md` de la raíz.
+Lo ya terminado (etapas 0–4, deploy, cambio de contraseña, registro cerrado) está en el
+`CLAUDE.md` de la raíz.
 
 ---
 
@@ -39,6 +40,29 @@ Hecha el 4/11/2026: la tabla, sus índices, su política de RLS y la vista
 `compras_cuotas_detalle` ya existen en la base. Queda anotado acá hasta que la
 rama `compras-en-cuotas` se mergee, porque la base ya tiene la tabla y el
 código que la usa todavía no está en `master`.
+
+---
+
+## 0.2 Correr la migración `movimientos_puntual` ✅
+
+Hecha el 16/11/2026 (migración `movimientos_puntual`): la columna `puntual` y la vista
+`movimientos_detalle` con `m.puntual` al final ya existen en la base. Queda anotado acá
+hasta que la rama `seguridad-y-prediccion` se mergee. Es aditivo (columna nullable, columna
+al final de la vista), así que el código de `master` sigue andando con la base migrada.
+
+```sql
+alter table movimientos add column if not exists puntual boolean;
+
+create or replace view movimientos_detalle
+with (security_invoker = true) as
+select
+  m.id, m.user_id, m.fecha, to_char(m.fecha, 'YYYY-MM') as mes,
+  m.importe_centavos, m.forma_pago, m.banco, m.tarjeta, m.nota, m.created_at,
+  c.id as comercio_id, c.nombre as comercio, c.categoria, c.subcategoria, c.es_fijo,
+  m.puntual
+from movimientos m
+join comercios c on c.id = m.comercio_id;
+```
 
 ---
 

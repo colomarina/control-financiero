@@ -5,20 +5,13 @@ import { getConfig } from '@/lib/db/config'
 import { mesActual, nombreMes, diaActual, diasDelMes, sumarMeses } from '@/lib/core/fechas'
 import { gastoTarjetaMes, gastoEfectivoMes, movimientosOrdenados } from '@/lib/core/gastos'
 import { cuotasDelMes, cuotasEntre } from '@/lib/core/cuotas'
-import { resumenTope } from '@/lib/core/topes'
+import { resumenTope, disponiblePorDia } from '@/lib/core/topes'
 import { fijosPendientes, contadorFijos } from '@/lib/core/fijos'
-import {
-  gastoNoVariable,
-  tasaVariableDiaria,
-  promedioHistoricoDiario,
-  tasaDiariaAplicable,
-  prediccionCierre,
-  superaElTope,
-} from '@/lib/core/prediccion'
+import { prediccionDelTope, superaElTope, margenDisponible } from '@/lib/core/prediccion'
 import { formatoARS } from '@/lib/core/dinero'
 import { BarraTope } from '@/components/BarraTope'
 import { MovimientosMes } from '@/components/MovimientosMes'
-import { Card, TituloCard, MontoHero, Badge, Banner } from '@/components/ds'
+import { Card, TituloCard, MontoHero, Badge, Banner, Monto, Separador } from '@/components/ds'
 
 export default async function HomePage() {
   const mes = mesActual()
@@ -35,7 +28,7 @@ export default async function HomePage() {
   // `movs` son los movimientos reales y no se tocan: los fijos se derivan
   // contando movimientos por comercio, y una cuota de un comercio fijo haría
   // que el fijo lea como pagado sin que llegara nada. `conCuotas` es la lista
-  // mezclada para todo lo que sí tiene que ver la cuota (topes, lista, ritmo).
+  // mezclada para todo lo que sí tiene que ver la cuota (topes, lista).
   const cuotasMes = cuotasDelMes(compras, mes)
   const conCuotas = [...movs, ...cuotasEntre(compras, desde, mes)]
 
@@ -53,32 +46,45 @@ export default async function HomePage() {
     config.umbralCercaPct,
   )
 
-  // La predicción es sobre el tope de tarjeta, como en la hoja del Excel.
+  // Cada tope tiene su propio cierre. Los fijos pesan solo contra tarjeta.
   const pendientes = fijosPendientes(fijos, movs, mes)
-  const prediccion = prediccionCierre({
-    gastadoReal: tarjeta.gastado,
-    fijosPendientes: pendientes,
-    tasaDiaria: tasaDiariaAplicable({
-      tasaMesActual: tasaVariableDiaria({
-        gastadoReal: tarjeta.gastado,
-        // La unión de fijos ya pagados y cuotas del mes. La cuenta vive en
-        // `lib/core` y no acá, con su test: es la que no puede contar dos
-        // veces la cuota de un comercio fijo.
-        fijosYaPagados: gastoNoVariable(fijos, movs, cuotasMes, mes, 'tarjeta'),
-        diaActual: hoy,
-      }),
-      promHistorico: promedioHistoricoDiario(conCuotas, mes, config.mesesHistorico, 'tarjeta'),
+  const cierre = (tope: 'tarjeta' | 'efectivo') =>
+    prediccionDelTope({
+      movsReales: movs,
+      cuotasMes,
+      fijos,
+      mes,
+      tope,
+      mesesHistorico: config.mesesHistorico,
       diaActual: hoy,
-      umbralDia: config.umbralDia,
+    })
+  const { prediccion, puntualesMes } = cierre('tarjeta')
+  const { prediccion: prediccionEfectivo } = cierre('efectivo')
+
+  // Cuánto podés gastar por día: el margen del tope repartido entre los días
+  // que quedan, contando hoy.
+  const diasConHoy = dias - hoy + 1
+  const porDiaTarjeta = disponiblePorDia(
+    margenDisponible({
+      tope: config.topeTarjetaCentavos,
+      gastadoReal: tarjeta.gastado,
+      fijosPendientes: pendientes,
     }),
-    diaActual: hoy,
-    diasMes: dias,
-    umbralDia: config.umbralDia,
-  })
+    diasConHoy,
+  )
+  const porDiaEfectivo = disponiblePorDia(
+    margenDisponible({
+      tope: config.topeEfectivoCentavos,
+      gastadoReal: efectivo.gastado,
+      fijosPendientes: 0,
+    }),
+    diasConHoy,
+  )
 
   const fijosContador = contadorFijos(fijos, movs, mes)
   const delMes = movimientosOrdenados(conCuotas, mes)
   const seVaAPasar = superaElTope(prediccion, config.topeTarjetaCentavos)
+  const efectivoSePasa = superaElTope(prediccionEfectivo, config.topeEfectivoCentavos)
 
   return (
     <div className="gap-space-lg flex flex-col">
@@ -90,8 +96,12 @@ export default async function HomePage() {
       </header>
 
       <div className="gap-space-sm flex flex-col">
-        <BarraTope titulo="Tarjeta" resumen={tarjeta} />
-        <BarraTope titulo="Efectivo y transferencias" resumen={efectivo} />
+        <BarraTope titulo="Tarjeta" resumen={tarjeta} porDia={porDiaTarjeta} />
+        <BarraTope
+          titulo="Efectivo y transferencias"
+          resumen={efectivo}
+          porDia={porDiaEfectivo}
+        />
       </div>
 
       <Card>
@@ -115,6 +125,25 @@ export default async function HomePage() {
               quedan {prediccion.diasRestantes}{' '}
               {prediccion.diasRestantes === 1 ? 'día' : 'días'}
             </p>
+            <p className="text-body-sm text-on-surface-variant tabular-nums">
+              Ritmo ~{formatoARS(prediccion.ritmoDiario)}/día
+            </p>
+            {puntualesMes.length > 0 && (
+              <p className="text-body-sm text-on-surface-variant tabular-nums">
+                Contadas aparte:{' '}
+                {puntualesMes
+                  .slice(0, 2)
+                  .map((m) => `${m.comercio} ${formatoARS(m.importeCentavos)}`)
+                  .join(' · ')}
+                {puntualesMes.length > 2 && ` · +${puntualesMes.length - 2} más`}
+              </p>
+            )}
+            {prediccion.puntualesEsperados > 0 && (
+              <p className="text-body-sm text-on-surface-variant tabular-nums">
+                Incluye ~{formatoARS(prediccion.puntualesEsperados)} de compras grandes que
+                solés hacer
+              </p>
+            )}
             {seVaAPasar && (
               <p className="text-body-md text-tertiary">
                 A este ritmo te pasás del tope de tarjeta.
@@ -128,6 +157,23 @@ export default async function HomePage() {
             Incluye {formatoARS(pendientes)} de fijos pendientes ·{' '}
             {fijosContador.pendientes + fijosContador.parciales} sin pagar.
           </Banner>
+        )}
+
+        {prediccionEfectivo.status === 'proyeccion' && (
+          <>
+            <Separador />
+            <div className="gap-space-sm flex items-center justify-between">
+              <span className="text-body-md text-on-surface-variant">
+                Efectivo y transferencias
+              </span>
+              <span className="gap-space-sm flex items-center">
+                {efectivoSePasa && <Badge tono="atencion">Ojo</Badge>}
+                <Monto tono={efectivoSePasa ? 'atencion' : 'neutro'}>
+                  {formatoARS(prediccionEfectivo.normal)}
+                </Monto>
+              </span>
+            </div>
+          </>
         )}
       </Card>
 

@@ -88,7 +88,7 @@ Cargar Geist (Google Fonts o `next/font`). Escala de tamaños (clases Tailwind `
 | `display-currency-mobile`  | Igual, en viewport chico                                 |
 | `headline-lg` / `-md`      | Títulos de sección                                       |
 | `headline-sm`              | Título de card, nombre de concepto                       |
-| `keypad-digits`            | Dígitos del teclado numérico al cargar gasto             |
+| `keypad-digits`            | El `$` del importe al cargar gasto                       |
 | `body-lg` / `body-md`      | Texto general                                            |
 | `body-sm`                  | Texto secundario, fechas, subtítulos                     |
 | `label-numeric`            | **Importes dentro de listas/cards** (peso medio)         |
@@ -164,6 +164,11 @@ Dos caminos que ya se probaron con el nativo y **no hay que volver a tomar**: en
 un `<label>` para agrandar el área táctil (tocar una etiqueta *enfoca* el select pero no
 abre el desplegable) y taparlo con una copia decorativa en `opacity-0` (el menú **hereda la
 opacidad** y abre encima en vez de abajo).
+
+**Tampoco `confirm()` nativo** para acciones destructivas: lo dibuja el sistema operativo y
+no se puede vestir, mismo motivo. Se confirma con doble toque: el primero pasa el botón a
+`error` lleno ("Tocá de nuevo para borrar") con el aviso debajo, y a los 4 s se desarma
+solo (`FormGasto`).
 
 ### Navegación
 - **Header** fijo arriba (`fixed top-0`), con `backdrop-blur`, logo + título de pantalla

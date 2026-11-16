@@ -78,6 +78,10 @@ create table if not exists movimientos (
   constraint movimientos_importe_positivo check (importe_centavos > 0)
 );
 
+-- `puntual`: marca manual de compra puntual (no recurrente). null = lo decide la
+-- app; true/false = el usuario lo forzó. Idempotente para bases ya creadas.
+alter table movimientos add column if not exists puntual boolean;
+
 -- El índice que pide la consulta de todas las pantallas: "los movimientos del mes".
 create index if not exists movimientos_user_fecha_ix
   on movimientos (user_id, fecha desc);
@@ -192,8 +196,8 @@ create table if not exists config (
   -- Unifica los tres umbrales que convivían en el Excel (0,80 / 0,85 / 0,90).
   umbral_cerca_pct              smallint not null default 85,
 
-  -- A partir de qué día del mes la predicción pasa de "es temprano" a proyectar.
-  -- No existía en el Excel: ahí proyectaba desde el día 1, con el ruido que eso trae.
+  -- En desuso desde 2026-11; se deja para no migrar. La predicción ya no mira un
+  -- día fijo: mezcla el ritmo del mes con el histórico (ver lib/core/prediccion.ts).
   umbral_dia                    smallint not null default 10,
 
   -- Cuántos meses cerrados mira el promedio histórico (para el arranque del mes).
@@ -258,7 +262,9 @@ select
   c.nombre        as comercio,
   c.categoria,
   c.subcategoria,
-  c.es_fijo
+  c.es_fijo,
+  -- Al final: `create or replace view` solo permite agregar columnas al final.
+  m.puntual
 from movimientos m
 join comercios c on c.id = m.comercio_id;
 
