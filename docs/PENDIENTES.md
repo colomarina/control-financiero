@@ -42,12 +42,12 @@ código que la usa todavía no está en `master`.
 
 ---
 
-## 0.2 Correr la migración `movimientos_puntual` 🟡
+## 0.2 Correr la migración `movimientos_puntual` ✅
 
-Antes de deployar la rama `seguridad-y-prediccion`: la columna `puntual` y la vista
-`movimientos_detalle` (con `m.puntual` al final) tienen que existir en la base de Supabase,
-o el Home y el Historial fallan al leer. Es aditivo (columna nullable, columna al final de
-la vista), así que el código de `master` sigue andando con la base migrada.
+Hecha el 16/11/2026 (migración `movimientos_puntual`): la columna `puntual` y la vista
+`movimientos_detalle` con `m.puntual` al final ya existen en la base. Queda anotado acá
+hasta que la rama `seguridad-y-prediccion` se mergee. Es aditivo (columna nullable, columna
+al final de la vista), así que el código de `master` sigue andando con la base migrada.
 
 ```sql
 alter table movimientos add column if not exists puntual boolean;
@@ -62,8 +62,6 @@ select
 from movimientos m
 join comercios c on c.id = m.comercio_id;
 ```
-
-Sin backup automático: si se quiere, exportar `movimientos` a CSV desde el Table Editor antes.
 
 ---
 
