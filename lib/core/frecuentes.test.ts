@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import type { MovimientoDetalle } from '@/lib/schemas/movimiento'
 import type { Comercio } from '@/lib/schemas/comercio'
-import { comerciosFrecuentes } from './frecuentes'
+import { comerciosFrecuentes, formasDePagoFrecuentes, ultimaFormaPorComercio } from './frecuentes'
 
 const ID = {
   coto: '00000000-0000-4000-8000-00000000c010',
@@ -57,7 +57,7 @@ describe('comerciosFrecuentes', () => {
       mov(ID.pedidos, '2026-09-05'),
       mov(ID.pedidos, '2026-09-06'),
     ]
-    expect(comerciosFrecuentes(movs, CATALOGO).map((c) => c.nombre)).toEqual([
+    expect(comerciosFrecuentes(movs, CATALOGO, 6).map((c) => c.nombre)).toEqual([
       'Coto',
       'PedidosYa',
       'Shell',
@@ -119,5 +119,57 @@ describe('comerciosFrecuentes', () => {
     // cambia de orden entre renders.
     const movs = [mov(ID.shell, '2026-09-01'), mov(ID.coto, '2026-09-01')]
     expect(comerciosFrecuentes(movs, CATALOGO).map((c) => c.nombre)).toEqual(['Coto', 'Shell'])
+  })
+})
+
+function movPago(comercioId: string, fecha: string, formaPago: MovimientoDetalle['formaPago']) {
+  return { ...mov(comercioId, fecha), formaPago }
+}
+
+describe('formasDePagoFrecuentes', () => {
+  it('las dos más usadas, de la más a la menos', () => {
+    const movs = [
+      movPago(ID.coto, '2026-09-01', 'efectivo'),
+      movPago(ID.coto, '2026-09-02', 'tarjeta_debito'),
+      movPago(ID.coto, '2026-09-03', 'tarjeta_debito'),
+      movPago(ID.coto, '2026-09-04', 'transferencia'),
+      movPago(ID.coto, '2026-09-05', 'transferencia'),
+      movPago(ID.coto, '2026-09-06', 'transferencia'),
+    ]
+    expect(formasDePagoFrecuentes(movs)).toEqual(['transferencia', 'tarjeta_debito'])
+  })
+
+  it('a igual uso gana la más reciente', () => {
+    const movs = [
+      movPago(ID.coto, '2026-09-01', 'efectivo'),
+      movPago(ID.coto, '2026-09-09', 'transferencia'),
+    ]
+    expect(formasDePagoFrecuentes(movs)).toEqual(['transferencia', 'efectivo'])
+  })
+
+  it('sin uso suficiente completa con el orden de siempre, sin repetir', () => {
+    expect(formasDePagoFrecuentes([])).toEqual(['tarjeta_credito', 'tarjeta_debito'])
+    expect(formasDePagoFrecuentes([movPago(ID.coto, '2026-09-01', 'efectivo')])).toEqual([
+      'efectivo',
+      'tarjeta_credito',
+    ])
+  })
+})
+
+describe('ultimaFormaPorComercio', () => {
+  it('la forma del movimiento más reciente de cada comercio', () => {
+    const movs = [
+      movPago(ID.coto, '2026-09-10', 'efectivo'),
+      movPago(ID.coto, '2026-09-01', 'tarjeta_credito'),
+      movPago(ID.shell, '2026-09-05', 'tarjeta_debito'),
+    ]
+    expect(ultimaFormaPorComercio(movs)).toEqual({
+      [ID.coto]: 'efectivo',
+      [ID.shell]: 'tarjeta_debito',
+    })
+  })
+
+  it('sin movimientos, vacío', () => {
+    expect(ultimaFormaPorComercio([])).toEqual({})
   })
 })

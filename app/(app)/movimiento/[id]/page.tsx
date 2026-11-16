@@ -5,7 +5,11 @@ import { getComercios } from '@/lib/db/comercios'
 import { getConfig } from '@/lib/db/config'
 import { getGastosFijos } from '@/lib/db/gastosFijos'
 import { hoyISO, mesActual, mesDe, sumarMeses } from '@/lib/core/fechas'
-import { comerciosFrecuentes } from '@/lib/core/frecuentes'
+import {
+  comerciosFrecuentes,
+  formasDePagoFrecuentes,
+  ultimaFormaPorComercio,
+} from '@/lib/core/frecuentes'
 import { umbralesPuntual } from '@/lib/core/puntuales'
 import { FormGasto } from '@/components/FormGasto'
 
@@ -52,6 +56,8 @@ export default async function EditarMovimientoPage({
         frecuentes={comerciosFrecuentes(recientes, comercios)}
         hoy={hoyISO()}
         umbrales={umbralesPuntual(movs, fijos, mes, config.mesesHistorico)}
+        formasFrecuentes={formasDePagoFrecuentes(recientes)}
+        ultimaForma={ultimaFormaPorComercio(movs)}
         movimiento={movimiento}
       />
     </div>

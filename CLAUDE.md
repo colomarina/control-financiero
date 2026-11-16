@@ -463,13 +463,29 @@ plan Free de Supabase no hace backups automáticos.
     (`AltaFijo`, `AltaLineaPlan`) lo usan **controlado** y limpian el estado a mano:
     `reset()` no toca un componente nuestro, y el comercio quedaba pegado del alta anterior.
 - **Atajos de comercio** en Cargar: `lib/core/frecuentes.ts` (puro, con test) ordena por usos
-  y desempata por el más reciente. La pantalla pasa los movimientos de dos meses; si no hay
-  ninguno, la grilla no se dibuja y queda el buscador de siempre.
-- **Teclado numérico del importe**: `components/Keypad.tsx` sobre `lib/core/keypad.ts`
-  (puro, con test). Se tipea en **pesos**, no en centavos: `1500` es $1.500 y los centavos
-  solo aparecen si se aprieta la coma. El form manda el texto formateado (`mostrar()`) y la
-  action lo pasa por `parsearImporte`; ese ida y vuelta está testeado, no romperlo.
-  Ya no existe el `keypad-digits` "pendiente" del `DESIGN_SYSTEM.md`.
+  y desempata por el más reciente. Son **dos**, una sola fila: seis empujaban la forma de pago
+  fuera de la pantalla. La pantalla pasa los movimientos de dos meses; si no hay ninguno, la
+  grilla no se dibuja y queda el buscador de siempre.
+- **Forma de pago**: dos botones con las más usadas (`formasDePagoFrecuentes`, mismo criterio
+  que los comercios, siempre devuelve dos) y un `CampoSelect` con las otras tres. En un alta,
+  elegir el comercio preselecciona la forma con que se lo pagó la última vez
+  (`ultimaFormaPorComercio`); al editar no se toca, porque ya es un dato cargado. Las dos
+  salen de **movimientos reales**: una compra en cuotas no es una elección de forma de pago
+  que se repita.
+- **Importe con el teclado del sistema**: `components/CampoImporte.tsx` sobre
+  `lib/core/keypad.ts` (puro, con test). Antes era un teclado propio de 12 teclas en pantalla
+  (`Keypad`): ocupaba media pantalla siempre. Ahora es un campo con `inputMode="decimal"`
+  que **cancela cada `beforeinput`** y lo traduce con `aplicarEntrada`, así las reglas son las
+  mismas que tenía el teclado propio: se tipea en **pesos**, no en centavos (`1500` es $1.500),
+  los centavos solo con coma —el punto vale como coma, porque muchos teclados numéricos solo
+  traen punto y los miles los pone la pantalla—. El form manda el texto formateado
+  (`mostrar()`) y la action lo pasa por `parsearImporte`; ese ida y vuelta está testeado, no
+  romperlo.
+  - En un alta arranca enfocado (`autoFocus`). En iPhone igual hace falta tocar el monto: Safari
+    no abre el teclado sin un toque. Al editar no se enfoca solo, para no tapar el resto.
+  - Enter cierra el teclado en vez de mandar el formulario a medio llenar.
+- **"Compra puntual" lleva una ⓘ con popover** que explica qué es. Popover y no tooltip:
+  en el celular no hay hover.
 - **PWA** (etapa 5, primera parte): `app/manifest.ts`, `public/sw.js` + `RegistrarSW`, e
   íconos generados por `npm run iconos` (`scripts/generar-iconos.ts`, PNG a mano con zlib,
   sin dependencias). Los de `public/` los referencia el manifest; los de `app/`

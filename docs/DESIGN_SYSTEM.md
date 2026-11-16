@@ -88,7 +88,7 @@ Cargar Geist (Google Fonts o `next/font`). Escala de tamaños (clases Tailwind `
 | `display-currency-mobile`  | Igual, en viewport chico                                 |
 | `headline-lg` / `-md`      | Títulos de sección                                       |
 | `headline-sm`              | Título de card, nombre de concepto                       |
-| `keypad-digits`            | Dígitos del teclado numérico al cargar gasto             |
+| `keypad-digits`            | El `$` del importe al cargar gasto                       |
 | `body-lg` / `body-md`      | Texto general                                            |
 | `body-sm`                  | Texto secundario, fechas, subtítulos                     |
 | `label-numeric`            | **Importes dentro de listas/cards** (peso medio)         |

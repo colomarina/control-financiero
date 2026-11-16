@@ -98,3 +98,54 @@ export function desdeCentavos(centavos: number): Importe {
     decimales: resto === 0 ? null : String(resto).padStart(2, '0'),
   }
 }
+
+/**
+ * Lee un texto con el formato de pantalla ('1.500,50', '$ 2500') como si se
+ * hubiera tipeado: los puntos son miles y se ignoran, la primera coma abre los
+ * centavos y cualquier otra cosa no cuenta. Es lo que hace pegar un importe.
+ */
+export function desdeTexto(texto: string): Importe {
+  let i = IMPORTE_VACIO
+  for (const c of texto) {
+    if (c === ',') i = pulsarComa(i)
+    else i = pulsarDigito(i, c)
+  }
+  return i
+}
+
+/**
+ * Traduce un evento `beforeinput` del campo del importe a las mismas reglas
+ * del keypad. El campo nunca deja que el navegador edite su texto: cada
+ * tecla pasa por acá, así que tipear con el teclado del celular, con el de la
+ * compu o pegar dan siempre el mismo resultado que el teclado propio de antes.
+ *
+ * Al tipear, el punto vale como coma: el teclado numérico de muchos celulares
+ * solo trae punto, y los miles los pone la pantalla, nunca quien tipea.
+ */
+export function aplicarEntrada(i: Importe, tipo: string, datos: string | null): Importe {
+  switch (tipo) {
+    case 'insertText':
+    case 'insertReplacementText': {
+      let r = i
+      for (const c of datos ?? '') {
+        if (c === ',' || c === '.') r = pulsarComa(r)
+        else r = pulsarDigito(r, c)
+      }
+      return r
+    }
+    case 'insertFromPaste':
+    case 'insertFromDrop':
+      return desdeTexto(datos ?? '')
+    case 'deleteContentBackward':
+    case 'deleteContentForward':
+      return borrar(i)
+    case 'deleteByCut':
+    case 'deleteWordBackward':
+    case 'deleteWordForward':
+    case 'deleteSoftLineBackward':
+    case 'deleteHardLineBackward':
+      return IMPORTE_VACIO
+    default:
+      return i
+  }
+}
