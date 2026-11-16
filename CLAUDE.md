@@ -120,7 +120,7 @@ Al inicializar shadcn y agregar componentes, seguir estas reglas:
    `schema.sql` + auth magic link, `dinero.ts`/`fechas.ts` con tests.
 1. **Movimientos** (corazón): schemas + repositorio + `gastos.ts` + action `crearMovimiento` +
    pantalla Cargar + Home con barras de topes.
-2. **Predicción**: `prediccion.ts` (B+E) con tests + mostrarla en Home.
+2. **Predicción**: `prediccion.ts` con tests + mostrarla en Home.
 3. **Presupuesto**: repositorio + `presupuesto.ts` + pantalla con mes objetivo.
 4. **Historial + fijos + gráficos** (Recharts).
 5. **Pulido**: PWA, búsqueda, filtros, export.
@@ -183,19 +183,49 @@ para la predicción —`falta` lo prorratea por las facturas pendientes— y el 
 contra lo esperado se muestra como dato (`desvioPct`), no como deuda. Hay un
 estado `parcial` que el Excel no distinguía: llegó alguna factura, no todas.
 
-**Predicción — método B+E** (`lib/core/prediccion.ts`):
+**Predicción — base + ritmo mezclado + puntuales** (`lib/core/prediccion.ts`, con la
+clasificación de compras en `lib/core/puntuales.ts`):
 
 ```
-B (Base)  = gastado del mes + fijos pendientes
-E (Extra) = ritmo variable diario × días restantes × factor
-cierre    = B + E      factores: optimista 0,85 · normal 1,00 · pesimista 1,25
+variable(m)   = movimiento real del tope, que NO es cuota, NO es comercio es_fijo
+                y NO es de un comercio con gasto fijo activo
+puntual(m)    = m.puntual ?? (m.importe > umbral)          ← la marca manual manda
+umbral        = DIAS_PUNTUAL (5) × mediana de los ritmos diarios brutos de los meses históricos
+
+ritmoHist     = promedio, en los meses históricos, de (variable − puntuales) / días del mes
+puntualesHist = promedio mensual de puntuales en esos meses
+ritmoMes      = (variable − puntuales) del mes / día actual
+ritmo         = (PESO_HISTORICO_DIAS·ritmoHist + día·ritmoMes) / (PESO_HISTORICO_DIAS + día)
+
+restantes     = días del mes − día actual
+esperados     = max(0, puntualesHist − puntuales del mes) × restantes / días del mes
+base          = gastado del tope (todo: fijos, cuotas, puntuales) + fijos pendientes
+optimista     = base + ritmo·restantes·0,85
+normal        = base + ritmo·restantes      + esperados
+pesimista     = base + ritmo·restantes·1,25 + esperados
 ```
 
-El ritmo variable diario es `(gastado − fijos ya pagados) / día actual`, contando
-solo lo que pesa contra el mismo tope. Antes de `config.umbral_dia` la predicción
-devuelve `temprano` en lugar de un número: con pocos días el ritmo es ruido.
-Lo que se descuenta ahí no son solo los fijos: es `gastoNoVariable`
-(`prediccion.ts`), la **unión** de fijos ya pagados y cuotas del mes.
+Las constantes: `DIAS_PUNTUAL = 5`, `PESO_HISTORICO_DIAS = 7`,
+`DIAS_MINIMOS_SIN_HISTORICO = 7`.
+
+- **Por qué cambió.** El Excel proyectaba desde el día 1, con el ritmo hecho ruido. La
+  versión B+E que lo reemplazó (ritmo = `(gastado − fijos pagados) / día`, con un
+  `umbral_dia` fijo) tenía el defecto inverso: una compra grande se proyectaba como gasto
+  diario —una tele el día 5 multiplicaba por cuatro el cierre estimado—.
+- **El umbral de puntual es en "días de gasto", no en múltiplos del ticket.** "3× la mediana
+  del ticket" (lo primero que se probó) marcaba entre 2 y 9 compras por mes con los datos
+  reales: un supermercado normal ya pasaba. "5 días de tu gasto normal" marca una por mes,
+  estable, y tomar la mediana *entre meses* evita que un mes con una compra enorme suba el
+  umbral.
+- **Marca manual**: `movimientos.puntual` es `null` (la app decide por el umbral), `true` o
+  `false` (el usuario lo forzó). Se edita con el switch "Compra puntual" del único
+  `FormGasto`, que además lo sugiere cuando el monto supera el umbral.
+- **No hay día mínimo configurable.** El histórico vale `PESO_HISTORICO_DIAS` días de datos:
+  el día 1 manda casi todo el histórico y a fin de mes casi todo el mes. Sin histórico no hay
+  con qué mezclar, y antes de `DIAS_MINIMOS_SIN_HISTORICO` la predicción devuelve `temprano`:
+  el único caso que queda. `config.umbral_dia` sigue en la tabla pero ya nada lo lee.
+- Las cuotas y los fijos son plata comprometida: entran a la base y **nunca** al ritmo. El
+  rango optimista–pesimista se angosta solo, porque el factor aplica solo al tramo proyectado.
 
 **Compras en cuotas — quién recibe las cuotas derivadas y quién no.** Una compra
 en cuotas se guarda **una sola vez** (`compras_cuotas`); las cuotas no se guardan

@@ -25,11 +25,6 @@ const schema = z.object({
     .int()
     .min(1, 'El umbral va entre 1 y 100')
     .max(100, 'El umbral va entre 1 y 100'),
-  umbralDia: z.coerce
-    .number()
-    .int()
-    .min(1, 'El día del umbral va entre 1 y 28')
-    .max(28, 'El día del umbral va entre 1 y 28'),
   mesesHistorico: z.coerce
     .number()
     .int()
@@ -68,7 +63,6 @@ export async function guardarParametros(
     ...plata,
     objetivoAhorroUsd: formData.get('objetivoAhorroUsd'),
     umbralCercaPct: formData.get('umbralCercaPct'),
-    umbralDia: formData.get('umbralDia'),
     mesesHistorico: formData.get('mesesHistorico'),
   })
 

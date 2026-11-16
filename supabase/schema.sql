@@ -196,8 +196,8 @@ create table if not exists config (
   -- Unifica los tres umbrales que convivían en el Excel (0,80 / 0,85 / 0,90).
   umbral_cerca_pct              smallint not null default 85,
 
-  -- A partir de qué día del mes la predicción pasa de "es temprano" a proyectar.
-  -- No existía en el Excel: ahí proyectaba desde el día 1, con el ruido que eso trae.
+  -- En desuso desde 2026-11; se deja para no migrar. La predicción ya no mira un
+  -- día fijo: mezcla el ritmo del mes con el histórico (ver lib/core/prediccion.ts).
   umbral_dia                    smallint not null default 10,
 
   -- Cuántos meses cerrados mira el promedio histórico (para el arranque del mes).

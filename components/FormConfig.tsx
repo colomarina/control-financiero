@@ -76,16 +76,6 @@ export function FormConfig({ config }: { config: Config }) {
       <Seccion titulo="Predicción">
 
         <Campo
-          id="umbralDia"
-          rotulo="Día desde el que proyecta"
-          type="number"
-          min={1}
-          max={28}
-          defaultValue={config.umbralDia}
-          ayuda="Antes de este día el Home dice que es temprano en vez de proyectar: con pocos días el ritmo diario es ruido."
-        />
-
-        <Campo
           id="mesesHistorico"
           rotulo="Meses de histórico"
           type="number"
