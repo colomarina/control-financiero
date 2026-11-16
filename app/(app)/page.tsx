@@ -5,13 +5,13 @@ import { getConfig } from '@/lib/db/config'
 import { mesActual, nombreMes, diaActual, diasDelMes, sumarMeses } from '@/lib/core/fechas'
 import { gastoTarjetaMes, gastoEfectivoMes, movimientosOrdenados } from '@/lib/core/gastos'
 import { cuotasDelMes, cuotasEntre } from '@/lib/core/cuotas'
-import { resumenTope } from '@/lib/core/topes'
+import { resumenTope, disponiblePorDia } from '@/lib/core/topes'
 import { fijosPendientes, contadorFijos } from '@/lib/core/fijos'
-import { prediccionDelTope, superaElTope } from '@/lib/core/prediccion'
+import { prediccionDelTope, superaElTope, margenDisponible } from '@/lib/core/prediccion'
 import { formatoARS } from '@/lib/core/dinero'
 import { BarraTope } from '@/components/BarraTope'
 import { MovimientosMes } from '@/components/MovimientosMes'
-import { Card, TituloCard, MontoHero, Badge, Banner } from '@/components/ds'
+import { Card, TituloCard, MontoHero, Badge, Banner, Monto, Separador } from '@/components/ds'
 
 export default async function HomePage() {
   const mes = mesActual()
@@ -46,21 +46,45 @@ export default async function HomePage() {
     config.umbralCercaPct,
   )
 
-  // La predicción es sobre el tope de tarjeta, como en la hoja del Excel.
+  // Cada tope tiene su propio cierre. Los fijos pesan solo contra tarjeta.
   const pendientes = fijosPendientes(fijos, movs, mes)
-  const { prediccion } = prediccionDelTope({
-    movsReales: movs,
-    cuotasMes,
-    fijos,
-    mes,
-    tope: 'tarjeta',
-    mesesHistorico: config.mesesHistorico,
-    diaActual: hoy,
-  })
+  const cierre = (tope: 'tarjeta' | 'efectivo') =>
+    prediccionDelTope({
+      movsReales: movs,
+      cuotasMes,
+      fijos,
+      mes,
+      tope,
+      mesesHistorico: config.mesesHistorico,
+      diaActual: hoy,
+    })
+  const { prediccion, puntualesMes } = cierre('tarjeta')
+  const { prediccion: prediccionEfectivo } = cierre('efectivo')
+
+  // Cuánto podés gastar por día: el margen del tope repartido entre los días
+  // que quedan, contando hoy.
+  const diasConHoy = dias - hoy + 1
+  const porDiaTarjeta = disponiblePorDia(
+    margenDisponible({
+      tope: config.topeTarjetaCentavos,
+      gastadoReal: tarjeta.gastado,
+      fijosPendientes: pendientes,
+    }),
+    diasConHoy,
+  )
+  const porDiaEfectivo = disponiblePorDia(
+    margenDisponible({
+      tope: config.topeEfectivoCentavos,
+      gastadoReal: efectivo.gastado,
+      fijosPendientes: 0,
+    }),
+    diasConHoy,
+  )
 
   const fijosContador = contadorFijos(fijos, movs, mes)
   const delMes = movimientosOrdenados(conCuotas, mes)
   const seVaAPasar = superaElTope(prediccion, config.topeTarjetaCentavos)
+  const efectivoSePasa = superaElTope(prediccionEfectivo, config.topeEfectivoCentavos)
 
   return (
     <div className="gap-space-lg flex flex-col">
@@ -72,8 +96,12 @@ export default async function HomePage() {
       </header>
 
       <div className="gap-space-sm flex flex-col">
-        <BarraTope titulo="Tarjeta" resumen={tarjeta} />
-        <BarraTope titulo="Efectivo y transferencias" resumen={efectivo} />
+        <BarraTope titulo="Tarjeta" resumen={tarjeta} porDia={porDiaTarjeta} />
+        <BarraTope
+          titulo="Efectivo y transferencias"
+          resumen={efectivo}
+          porDia={porDiaEfectivo}
+        />
       </div>
 
       <Card>
@@ -97,11 +125,47 @@ export default async function HomePage() {
               quedan {prediccion.diasRestantes}{' '}
               {prediccion.diasRestantes === 1 ? 'día' : 'días'}
             </p>
+            <p className="text-body-sm text-on-surface-variant tabular-nums">
+              Ritmo ~{formatoARS(prediccion.ritmoDiario)}/día
+            </p>
+            {puntualesMes.length > 0 && (
+              <p className="text-body-sm text-on-surface-variant tabular-nums">
+                Contadas aparte:{' '}
+                {puntualesMes
+                  .slice(0, 2)
+                  .map((m) => `${m.comercio} ${formatoARS(m.importeCentavos)}`)
+                  .join(' · ')}
+                {puntualesMes.length > 2 && ` · +${puntualesMes.length - 2} más`}
+              </p>
+            )}
+            {prediccion.puntualesEsperados > 0 && (
+              <p className="text-body-sm text-on-surface-variant tabular-nums">
+                Incluye ~{formatoARS(prediccion.puntualesEsperados)} de compras grandes que
+                solés hacer
+              </p>
+            )}
             {seVaAPasar && (
               <p className="text-body-md text-tertiary">
                 A este ritmo te pasás del tope de tarjeta.
               </p>
             )}
+          </>
+        )}
+
+        {prediccionEfectivo.status === 'proyeccion' && (
+          <>
+            <Separador />
+            <div className="gap-space-sm flex items-center justify-between">
+              <span className="text-body-md text-on-surface-variant">
+                Efectivo y transferencias
+              </span>
+              <span className="gap-space-sm flex items-center">
+                {efectivoSePasa && <Badge tono="atencion">Ojo</Badge>}
+                <Monto tono={efectivoSePasa ? 'atencion' : 'neutro'}>
+                  {formatoARS(prediccionEfectivo.normal)}
+                </Monto>
+              </span>
+            </div>
           </>
         )}
 

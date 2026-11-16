@@ -20,6 +20,8 @@ export default function CargandoHome() {
               <Esqueleto className="h-5 w-28" />
             </div>
             <Esqueleto className="h-2 w-full rounded-full" />
+            <Esqueleto className="h-4 w-40" />
+            <Esqueleto className="h-4 w-36" />
           </Card>
         ))}
       </div>
@@ -28,6 +30,13 @@ export default function CargandoHome() {
         <Esqueleto className="h-4 w-32" />
         <Esqueleto className="h-10 w-44" />
         <Esqueleto className="h-4 w-full" />
+        <Esqueleto className="h-4 w-32" />
+        <Esqueleto className="h-4 w-56" />
+        <Esqueleto className="h-px w-full" />
+        <div className="gap-space-sm flex items-center justify-between">
+          <Esqueleto className="h-5 w-40" />
+          <Esqueleto className="h-5 w-24" />
+        </div>
       </Card>
 
       <div className="gap-space-sm flex flex-col">
