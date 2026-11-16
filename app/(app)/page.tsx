@@ -152,6 +152,13 @@ export default async function HomePage() {
           </>
         )}
 
+        {pendientes > 0 && (
+          <Banner icono="event_repeat">
+            Incluye {formatoARS(pendientes)} de fijos pendientes ·{' '}
+            {fijosContador.pendientes + fijosContador.parciales} sin pagar.
+          </Banner>
+        )}
+
         {prediccionEfectivo.status === 'proyeccion' && (
           <>
             <Separador />
@@ -167,13 +174,6 @@ export default async function HomePage() {
               </span>
             </div>
           </>
-        )}
-
-        {pendientes > 0 && (
-          <Banner icono="event_repeat">
-            Incluye {formatoARS(pendientes)} de fijos pendientes ·{' '}
-            {fijosContador.pendientes + fijosContador.parciales} sin pagar.
-          </Banner>
         )}
       </Card>
 

@@ -78,11 +78,11 @@ create table if not exists movimientos (
   constraint movimientos_importe_positivo check (importe_centavos > 0)
 );
 
--- El índice que pide la consulta de todas las pantallas: "los movimientos del mes".
 -- `puntual`: marca manual de compra puntual (no recurrente). null = lo decide la
 -- app; true/false = el usuario lo forzó. Idempotente para bases ya creadas.
 alter table movimientos add column if not exists puntual boolean;
 
+-- El índice que pide la consulta de todas las pantallas: "los movimientos del mes".
 create index if not exists movimientos_user_fecha_ix
   on movimientos (user_id, fecha desc);
 

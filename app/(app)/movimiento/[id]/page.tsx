@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation'
+import { z } from 'zod'
 import { getMovimiento, getMovimientosDesde } from '@/lib/db/movimientos'
 import { getComercios } from '@/lib/db/comercios'
 import { getConfig } from '@/lib/db/config'
@@ -21,6 +22,7 @@ export default async function EditarMovimientoPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
+  if (!z.uuid().safeParse(id).success) notFound()
 
   const movimiento = await getMovimiento(id)
   // El RLS ya filtra por usuario: si no aparece, o no existe o no es tuyo.

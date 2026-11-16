@@ -205,6 +205,9 @@ normal        = base + ritmo·restantes      + esperados
 pesimista     = base + ritmo·restantes·1,25 + esperados
 ```
 
+Los fijos pendientes pesan solo contra tarjeta (son débitos automáticos): el cierre de
+efectivo usa `fijosPendientes = 0`.
+
 Las constantes: `DIAS_PUNTUAL = 5`, `PESO_HISTORICO_DIAS = 7`,
 `DIAS_MINIMOS_SIN_HISTORICO = 7`.
 
@@ -237,14 +240,20 @@ tira error, nada se pone en rojo — simplemente la pantalla informa mal la plat
 
 | Pantalla | Qué recibe |
 |---|---|
-| Home: topes, lista ordenada, promedio histórico | movimientos **+** cuotas (hasta el mes actual) |
+| Home: topes, lista ordenada | movimientos **+** cuotas (hasta el mes actual) |
+| Home: cierre estimado (`prediccionDelTope`: ritmo, puntuales, histórico, umbral) | **solo movimientos reales**; las cuotas entran únicamente al `gastado` del tope |
 | Historial: mes a mes, promedio, gráfico, categorías, buscador | movimientos **+** cuotas, **cortando en el mes actual** |
 | Checklist de fijos (`lib/core/fijos.ts`) | **solo movimientos reales** |
 | `/presupuesto` | **solo movimientos reales** |
 | Atajos de comercio en `/cargar` | **solo movimientos reales** |
+| Umbral de compra puntual (`/cargar`, `/movimiento/[id]`) | **solo movimientos reales** |
 
 Cada fila, con su porqué:
 
+- **El cierre estimado y el umbral de puntual no ven cuotas** porque una compra en 12
+  cuotas inflaría el ritmo y el umbral durante un año entero. `esVariable` ya descarta
+  las cuotas, pero la regla no puede depender de eso: la lista se filtra antes de entrar.
+  La cuota sí pesa en el `gastado` del tope, que es lo que se debe.
 - **El Historial corta en el mes actual** porque `promedioMensual` excluye un solo
   mes, el marcado `enCurso`. Los meses futuros que una compra en cuotas ya tiene
   comprometidos entrarían al promedio **como meses cerrados**, y el número de

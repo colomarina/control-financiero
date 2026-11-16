@@ -238,7 +238,7 @@ export function FormGasto({
 
   const umbral = umbrales[TOPE_DE_FORMA_PAGO[formaPago]]
   const importeCentavos = parsearImporte(mostrar(importe)) ?? 0
-  const sugerido = umbral !== null && importeCentavos > umbral
+  const sugerido = !elegido?.esFijo && umbral !== null && importeCentavos > umbral
   const puntualActivo = forzado ?? sugerido
 
   return (

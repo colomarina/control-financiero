@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation'
+import { z } from 'zod'
 import { getCompraEnCuotas } from '@/lib/db/cuotas'
 import { getComercios } from '@/lib/db/comercios'
 import { getMovimientosDesde } from '@/lib/db/movimientos'
@@ -48,6 +49,7 @@ export default async function CompraEnCuotasPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
+  if (!z.uuid().safeParse(id).success) notFound()
 
   const compra = await getCompraEnCuotas(id)
   // El RLS ya filtra por usuario: si no aparece, o no existe o no es tuya.
