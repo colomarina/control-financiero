@@ -2,6 +2,7 @@ import 'server-only'
 import { crearCliente } from './client'
 import type { FormaPago } from '@/lib/schemas/movimiento'
 import type { CompraCuotasDetalle } from '@/lib/schemas/compraCuotas'
+import { fallaDb } from '@/lib/db/errores'
 
 /**
  * Repositorio de compras en cuotas.
@@ -61,7 +62,7 @@ export async function getComprasEnCuotas(): Promise<CompraCuotasDetalle[]> {
     .select(COLUMNAS)
     .order('fecha', { ascending: false })
 
-  if (error) throw new Error(`No pude leer las compras en cuotas: ${error.message}`)
+  if (error) fallaDb('leer las compras en cuotas', error)
   return (data as unknown as FilaDetalle[]).map(aDominio)
 }
 
@@ -74,7 +75,7 @@ export async function getCompraEnCuotas(id: string): Promise<CompraCuotasDetalle
     .eq('id', id)
     .maybeSingle()
 
-  if (error) throw new Error(`No pude leer la compra en cuotas: ${error.message}`)
+  if (error) fallaDb('leer la compra en cuotas', error)
   return data ? aDominio(data as unknown as FilaDetalle) : null
 }
 
@@ -100,7 +101,7 @@ export async function crearCompra(c: {
     nota: c.nota,
   })
 
-  if (error) throw new Error(`No pude guardar la compra en cuotas: ${error.message}`)
+  if (error) fallaDb('guardar la compra en cuotas', error)
 }
 
 export async function actualizarCompra(
@@ -117,7 +118,7 @@ export async function actualizarCompra(
   },
 ): Promise<void> {
   const supabase = await crearCliente()
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('compras_cuotas')
     .update({
       fecha: c.fecha,
@@ -130,12 +131,15 @@ export async function actualizarCompra(
       nota: c.nota,
     })
     .eq('id', id)
+    .select('id')
 
-  if (error) throw new Error(`No pude actualizar la compra en cuotas: ${error.message}`)
+  if (error) fallaDb('actualizar la compra en cuotas', error)
+  if (data.length === 0) throw new Error('No encontré esa compra.')
 }
 
 export async function borrarCompra(id: string): Promise<void> {
   const supabase = await crearCliente()
-  const { error } = await supabase.from('compras_cuotas').delete().eq('id', id)
-  if (error) throw new Error(`No pude borrar la compra en cuotas: ${error.message}`)
+  const { data, error } = await supabase.from('compras_cuotas').delete().eq('id', id).select('id')
+  if (error) fallaDb('borrar la compra en cuotas', error)
+  if (data.length === 0) throw new Error('No encontré esa compra.')
 }

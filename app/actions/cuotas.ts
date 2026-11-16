@@ -1,6 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { z } from 'zod'
 
 import { nuevaCompraCuotasSchema } from '@/lib/schemas/compraCuotas'
 import { crearCompra, getCompraEnCuotas, actualizarCompra, borrarCompra } from '@/lib/db/cuotas'
@@ -73,10 +74,11 @@ export async function editarCompraEnCuotas(
   _estado: EstadoForm,
   formData: FormData,
 ): Promise<EstadoForm> {
-  const id = formData.get('id')
-  if (typeof id !== 'string' || id === '') {
-    return { ok: false, error: 'Falta la compra a editar.' }
+  const idValido = z.uuid().safeParse(formData.get('id'))
+  if (!idValido.success) {
+    return { ok: false, error: 'Esa compra no existe.' }
   }
+  const id = idValido.data
 
   const importeCuotaCentavos = parsearImporte(String(formData.get('importe') ?? ''))
   if (importeCuotaCentavos === null) {
@@ -128,9 +130,12 @@ export async function editarCompraEnCuotas(
  * Bajar el número de cuotas (`editarCompraEnCuotas`) es la otra operación, y
  * es la que corresponde a una baja o devolución real.
  */
-export async function eliminarCompraEnCuotas(id: string): Promise<EstadoForm> {
+export async function eliminarCompraEnCuotas(id: unknown): Promise<EstadoForm> {
+  const idValido = z.uuid().safeParse(id)
+  if (!idValido.success) return { ok: false, error: 'Esa compra no existe.' }
+
   try {
-    await borrarCompra(id)
+    await borrarCompra(idValido.data)
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'No pude borrarla.' }
   }

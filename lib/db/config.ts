@@ -1,5 +1,6 @@
 import 'server-only'
 import { crearCliente } from './client'
+import { fallaDb } from '@/lib/db/errores'
 
 /**
  * Repositorio de configuración. Una sola fila por usuario.
@@ -52,7 +53,7 @@ export async function getConfig(): Promise<Config> {
   const supabase = await crearCliente()
   const { data, error } = await supabase.from('config').select(COLUMNAS).maybeSingle()
 
-  if (error) throw new Error(`No pude leer la configuración: ${error.message}`)
+  if (error) fallaDb('leer la configuración', error)
   if (!data) return CONFIG_POR_DEFECTO
 
   const f = data as unknown as FilaConfig
@@ -93,5 +94,5 @@ export async function guardarConfig(c: Partial<Config>): Promise<void> {
     { onConflict: 'user_id' },
   )
 
-  if (error) throw new Error(`No pude guardar la configuración: ${error.message}`)
+  if (error) fallaDb('guardar la configuración', error)
 }

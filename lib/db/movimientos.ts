@@ -2,6 +2,7 @@ import 'server-only'
 import { crearCliente } from './client'
 import type { FormaPago, MovimientoDetalle } from '@/lib/schemas/movimiento'
 import { diasDelMes, type Mes } from '@/lib/core/fechas'
+import { fallaDb } from '@/lib/db/errores'
 
 /**
  * Repositorio de movimientos.
@@ -65,7 +66,7 @@ export async function getMovimientosDelMes(mes: Mes): Promise<MovimientoDetalle[
     .lte('fecha', hasta)
     .order('fecha', { ascending: false })
 
-  if (error) throw new Error(`No pude leer los movimientos: ${error.message}`)
+  if (error) fallaDb('leer los movimientos', error)
   return (data as unknown as FilaDetalle[]).map(aDominio)
 }
 
@@ -81,7 +82,7 @@ export async function getMovimientosDesde(mes: Mes): Promise<MovimientoDetalle[]
     .gte('fecha', `${mes}-01`)
     .order('fecha', { ascending: false })
 
-  if (error) throw new Error(`No pude leer los movimientos: ${error.message}`)
+  if (error) fallaDb('leer los movimientos', error)
   return (data as unknown as FilaDetalle[]).map(aDominio)
 }
 
@@ -93,7 +94,7 @@ export async function getMesesConMovimientos(): Promise<Mes[]> {
     .select('mes')
     .order('mes', { ascending: false })
 
-  if (error) throw new Error(`No pude leer los meses: ${error.message}`)
+  if (error) fallaDb('leer los meses', error)
   return [...new Set((data as unknown as { mes: string }[]).map((f) => f.mes))]
 }
 
@@ -117,13 +118,14 @@ export async function crearMovimiento(m: {
     nota: m.nota,
   })
 
-  if (error) throw new Error(`No pude guardar el movimiento: ${error.message}`)
+  if (error) fallaDb('guardar el movimiento', error)
 }
 
 export async function borrarMovimiento(id: string): Promise<void> {
   const supabase = await crearCliente()
-  const { error } = await supabase.from('movimientos').delete().eq('id', id)
-  if (error) throw new Error(`No pude borrar el movimiento: ${error.message}`)
+  const { data, error } = await supabase.from('movimientos').delete().eq('id', id).select('id')
+  if (error) fallaDb('borrar el movimiento', error)
+  if (data.length === 0) throw new Error('No encontré ese gasto.')
 }
 
 /** Un movimiento por id, o `null` si no existe (o no es de este usuario: lo filtra el RLS). */
@@ -135,7 +137,7 @@ export async function getMovimiento(id: string): Promise<MovimientoDetalle | nul
     .eq('id', id)
     .maybeSingle()
 
-  if (error) throw new Error(`No pude leer el movimiento: ${error.message}`)
+  if (error) fallaDb('leer el movimiento', error)
   return data ? aDominio(data as unknown as FilaDetalle) : null
 }
 
@@ -152,7 +154,7 @@ export async function actualizarMovimiento(
   },
 ): Promise<void> {
   const supabase = await crearCliente()
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('movimientos')
     .update({
       fecha: m.fecha,
@@ -164,6 +166,8 @@ export async function actualizarMovimiento(
       nota: m.nota,
     })
     .eq('id', id)
+    .select('id')
 
-  if (error) throw new Error(`No pude actualizar el movimiento: ${error.message}`)
+  if (error) fallaDb('actualizar el movimiento', error)
+  if (data.length === 0) throw new Error('No encontré ese gasto.')
 }

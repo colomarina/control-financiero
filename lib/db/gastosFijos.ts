@@ -1,6 +1,7 @@
 import 'server-only'
 import { crearCliente } from './client'
 import type { GastoFijoDetalle } from '@/lib/schemas/gastoFijo'
+import { fallaDb } from '@/lib/db/errores'
 
 /**
  * Repositorio de gastos fijos.
@@ -29,7 +30,7 @@ export async function getGastosFijos(): Promise<GastoFijoDetalle[]> {
     )
     .eq('activo', true)
 
-  if (error) throw new Error(`No pude leer los gastos fijos: ${error.message}`)
+  if (error) fallaDb('leer los gastos fijos', error)
 
   return (data as unknown as FilaFijo[])
     .map((f) => ({
@@ -66,11 +67,11 @@ export async function guardarGastoFijo(g: {
     { onConflict: 'user_id,comercio_id' },
   )
 
-  if (error) throw new Error(`No pude guardar el gasto fijo: ${error.message}`)
+  if (error) fallaDb('guardar el gasto fijo', error)
 }
 
 export async function darDeBajaGastoFijo(id: string): Promise<void> {
   const supabase = await crearCliente()
   const { error } = await supabase.from('gastos_fijos').update({ activo: false }).eq('id', id)
-  if (error) throw new Error(`No pude dar de baja el gasto fijo: ${error.message}`)
+  if (error) fallaDb('dar de baja el gasto fijo', error)
 }

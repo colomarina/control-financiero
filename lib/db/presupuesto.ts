@@ -2,6 +2,7 @@ import 'server-only'
 import { crearCliente } from './client'
 import type { LineaPresupuestoDetalle } from '@/lib/schemas/presupuesto'
 import type { Mes } from '@/lib/core/fechas'
+import { fallaDb } from '@/lib/db/errores'
 
 /**
  * Repositorio del presupuesto: el PLAN por comercio y mes.
@@ -33,7 +34,7 @@ export async function getPlanDelMes(mes: Mes): Promise<LineaPresupuestoDetalle[]
   const supabase = await crearCliente()
   const { data, error } = await supabase.from('presupuesto').select(SELECT).eq('mes', mes)
 
-  if (error) throw new Error(`No pude leer el presupuesto: ${error.message}`)
+  if (error) fallaDb('leer el presupuesto', error)
   return (data as unknown as FilaPlan[]).map(aDominio)
 }
 
@@ -45,7 +46,7 @@ export async function getMesesConPlan(): Promise<Mes[]> {
     .select('mes')
     .order('mes', { ascending: false })
 
-  if (error) throw new Error(`No pude leer los meses del presupuesto: ${error.message}`)
+  if (error) fallaDb('leer los meses del presupuesto', error)
   return [...new Set((data as unknown as { mes: string }[]).map((f) => f.mes))]
 }
 
@@ -66,7 +67,7 @@ export async function guardarLinea(l: {
       .delete()
       .eq('mes', l.mes)
       .eq('comercio_id', l.comercioId)
-    if (error) throw new Error(`No pude borrar la línea: ${error.message}`)
+    if (error) fallaDb('borrar la línea', error)
     return
   }
 
@@ -83,7 +84,7 @@ export async function guardarLinea(l: {
     { onConflict: 'user_id,mes,comercio_id' },
   )
 
-  if (error) throw new Error(`No pude guardar la línea: ${error.message}`)
+  if (error) fallaDb('guardar la línea', error)
 }
 
 /** Inserta varias líneas de una (lo usa "copiar el plan del mes anterior"). */
@@ -107,6 +108,6 @@ export async function guardarLineas(
     { onConflict: 'user_id,mes,comercio_id' },
   )
 
-  if (error) throw new Error(`No pude copiar el plan: ${error.message}`)
+  if (error) fallaDb('copiar el plan', error)
   return utiles.length
 }

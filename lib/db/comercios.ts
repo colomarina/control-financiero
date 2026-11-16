@@ -1,6 +1,7 @@
 import 'server-only'
 import { crearCliente } from './client'
 import type { Comercio } from '@/lib/schemas/comercio'
+import { fallaDb } from '@/lib/db/errores'
 
 /**
  * Repositorio de comercios. El `user_id` lo pone la base (`default auth.uid()`)
@@ -38,7 +39,7 @@ export async function getComercios(): Promise<Comercio[]> {
     .eq('activo', true)
     .order('nombre')
 
-  if (error) throw new Error(`No pude leer los comercios: ${error.message}`)
+  if (error) fallaDb('leer los comercios', error)
   return (data as unknown as FilaComercio[]).map(aDominio)
 }
 
@@ -50,7 +51,7 @@ export async function getTodosLosComercios(): Promise<Comercio[]> {
     .select(COLUMNAS)
     .order('nombre')
 
-  if (error) throw new Error(`No pude leer los comercios: ${error.message}`)
+  if (error) fallaDb('leer los comercios', error)
   return (data as unknown as FilaComercio[]).map(aDominio)
 }
 
@@ -74,7 +75,7 @@ export async function crearComercio(c: {
 
   if (error) {
     if (error.code === '23505') throw new Error(`Ya existe un comercio llamado "${c.nombre}".`)
-    throw new Error(`No pude crear el comercio: ${error.message}`)
+    fallaDb('crear el comercio', error)
   }
   return aDominio(data as unknown as FilaComercio)
 }
@@ -101,7 +102,7 @@ export async function editarComercio(
     })
     .eq('id', id)
 
-  if (error) throw new Error(`No pude actualizar el comercio: ${error.message}`)
+  if (error) fallaDb('actualizar el comercio', error)
 }
 
 /** Las categorías que ya existen, para el desplegable. */
