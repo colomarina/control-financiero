@@ -102,3 +102,19 @@ export function ultimaFormaPorComercio(movs: MovimientoDetalle[]): Record<string
   }
   return Object.fromEntries([...ultima].map(([id, { forma }]) => [id, forma]))
 }
+
+/**
+ * Qué forma de pago poner al elegir un comercio, o `null` para no tocar nada.
+ *
+ * Solo en un alta y solo si la forma no se eligió a mano: la forma decide
+ * contra qué tope pesa el gasto, y pisar una elección del usuario lo cargaría
+ * en el tope equivocado sin que lo note.
+ */
+export function formaPreseleccionada(
+  ultimaForma: Record<string, FormaPago>,
+  comercioId: string,
+  estado: { editando: boolean; tocada: boolean },
+): FormaPago | null {
+  if (estado.editando || estado.tocada) return null
+  return ultimaForma[comercioId] ?? null
+}

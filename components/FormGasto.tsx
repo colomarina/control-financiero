@@ -16,6 +16,7 @@ import {
 import {
   FORMAS_PAGO,
   ETIQUETA_FORMA_PAGO,
+  formaPagoSchema,
   type FormaPago,
   type MovimientoDetalle,
 } from '@/lib/schemas/movimiento'
@@ -23,7 +24,7 @@ import type { CompraCuotasDetalle } from '@/lib/schemas/compraCuotas'
 import type { Comercio } from '@/lib/schemas/comercio'
 import { Card, TituloCard, Banner, campo, botonPrimario } from '@/components/ds'
 import { Icono } from '@/components/Icono'
-import { CampoImporte } from '@/components/CampoImporte'
+import { CampoImporte, type CampoImporteHandle } from '@/components/CampoImporte'
 import { CampoSelect } from '@/components/CampoSelect'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { CampoFecha } from '@/components/CampoFecha'
@@ -38,6 +39,7 @@ import { parsearImporte, formatoARS } from '@/lib/core/dinero'
 import { nombreMes } from '@/lib/core/fechas'
 import { resumenPlan } from '@/lib/core/cuotas'
 import { TOPE_DE_FORMA_PAGO } from '@/lib/core/gastos'
+import { formaPreseleccionada } from '@/lib/core/frecuentes'
 import type { Tope } from '@/lib/core/puntuales'
 import { cn } from '@/lib/utils'
 
@@ -140,8 +142,11 @@ export function FormGasto({
   // `null` = sin decisión manual: manda la sugerencia por monto. Siempre viaja
   // en el form (también al editar), o cada edición borraría una marca manual.
   const [forzado, setForzado] = useState<boolean | null>(movimiento?.puntual ?? null)
+  // Una forma elegida a mano no la pisa la preselección por comercio.
+  const [formaTocada, setFormaTocada] = useState(false)
   const listaId = useId()
   const formRef = useRef<HTMLFormElement>(null)
+  const importeRef = useRef<CampoImporteHandle>(null)
 
   /**
    * El reset va acá y no en un efecto: limpiar el formulario es consecuencia
@@ -183,6 +188,9 @@ export function FormGasto({
       setCuotas(1)
       setForzado(null)
       setFormaPago(formasFrecuentes[0] ?? 'tarjeta_credito')
+      setFormaTocada(false)
+      // Listo para el próximo gasto sin tener que tocar el monto.
+      importeRef.current?.enfocar()
     })
   }
 
@@ -242,9 +250,16 @@ export function FormGasto({
    * no se toca, porque la forma ya es un dato cargado.
    */
   function preseleccionarForma(id: string) {
-    if (base) return
-    const forma = ultimaForma[id]
+    const forma = formaPreseleccionada(ultimaForma, id, {
+      editando: base !== undefined,
+      tocada: formaTocada,
+    })
     if (forma) setFormaPago(forma)
+  }
+
+  function elegirForma(f: FormaPago) {
+    setFormaPago(f)
+    setFormaTocada(true)
   }
 
   /**
@@ -289,7 +304,12 @@ export function FormGasto({
 
       <Card>
         <TituloCard>Importe</TituloCard>
-        <CampoImporte valor={importe} onChange={setImporte} autoFocus={!esEdicion} />
+        <CampoImporte
+          ref={importeRef}
+          valor={importe}
+          onChange={setImporte}
+          autoFocus={!esEdicion}
+        />
       </Card>
 
       {/* Al editar un movimiento suelto no tiene sentido: convertir un gasto
@@ -423,7 +443,7 @@ export function FormGasto({
               <button
                 key={f}
                 type="button"
-                onClick={() => setFormaPago(f)}
+                onClick={() => elegirForma(f)}
                 aria-pressed={formaPago === f}
                 className={cn(
                   'px-space-sm text-body-md rounded-lg py-3 transition-transform active:scale-95',
@@ -446,7 +466,10 @@ export function FormGasto({
               etiqueta: ETIQUETA_FORMA_PAGO[f],
             }))}
             valor={formasFrecuentes.includes(formaPago) ? '' : formaPago}
-            onCambio={(v) => v && setFormaPago(v as FormaPago)}
+            onCambio={(v) => {
+              const forma = formaPagoSchema.safeParse(v)
+              if (forma.success) elegirForma(forma.data)
+            }}
           />
         </fieldset>
       </Card>
@@ -464,7 +487,7 @@ export function FormGasto({
                   <PopoverTrigger
                     type="button"
                     aria-label="Qué es una compra puntual"
-                    className="text-on-surface-variant flex h-6 w-6 items-center justify-center rounded-full active:scale-95"
+                    className="text-on-surface-variant focus-visible:ring-primary -m-2.5 flex h-11 w-11 items-center justify-center rounded-full outline-none focus-visible:ring-2 active:scale-95"
                   >
                     <Icono nombre="info" className="text-[18px]" />
                   </PopoverTrigger>
@@ -496,6 +519,7 @@ export function FormGasto({
               onClick={() => setForzado(!puntualActivo)}
               className={cn(
                 'relative h-7 w-12 shrink-0 rounded-full transition-colors',
+                'focus-visible:ring-primary outline-none focus-visible:ring-2',
                 puntualActivo ? 'bg-primary' : 'bg-surface-container-high',
               )}
             >

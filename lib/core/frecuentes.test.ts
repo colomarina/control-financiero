@@ -1,7 +1,12 @@
 import { describe, it, expect } from 'vitest'
 import type { MovimientoDetalle } from '@/lib/schemas/movimiento'
 import type { Comercio } from '@/lib/schemas/comercio'
-import { comerciosFrecuentes, formasDePagoFrecuentes, ultimaFormaPorComercio } from './frecuentes'
+import {
+  comerciosFrecuentes,
+  formasDePagoFrecuentes,
+  ultimaFormaPorComercio,
+  formaPreseleccionada,
+} from './frecuentes'
 
 const ID = {
   coto: '00000000-0000-4000-8000-00000000c010',
@@ -171,5 +176,27 @@ describe('ultimaFormaPorComercio', () => {
 
   it('sin movimientos, vacío', () => {
     expect(ultimaFormaPorComercio([])).toEqual({})
+  })
+})
+
+describe('formaPreseleccionada', () => {
+  const ultima = { [ID.coto]: 'efectivo' as const }
+
+  it('en un alta sin tocar la forma, trae la última del comercio', () => {
+    expect(formaPreseleccionada(ultima, ID.coto, { editando: false, tocada: false })).toBe(
+      'efectivo',
+    )
+  })
+
+  it('no pisa una forma elegida a mano', () => {
+    expect(formaPreseleccionada(ultima, ID.coto, { editando: false, tocada: true })).toBeNull()
+  })
+
+  it('al editar no cambia nada', () => {
+    expect(formaPreseleccionada(ultima, ID.coto, { editando: true, tocada: false })).toBeNull()
+  })
+
+  it('un comercio sin historial no propone nada', () => {
+    expect(formaPreseleccionada(ultima, ID.shell, { editando: false, tocada: false })).toBeNull()
   })
 })

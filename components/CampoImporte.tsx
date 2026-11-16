@@ -1,7 +1,13 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
-import { aplicarEntrada, mostrar, estaVacio, type Importe } from '@/lib/core/keypad'
+import { useEffect, useImperativeHandle, useRef, type Ref } from 'react'
+import {
+  aplicarEntrada,
+  desdeTexto,
+  mostrar,
+  estaVacio,
+  type Importe,
+} from '@/lib/core/keypad'
 import { cn } from '@/lib/utils'
 
 /**
@@ -21,17 +27,24 @@ import { cn } from '@/lib/utils'
  * En iPhone el teclado no se abre solo al entrar: Safari no deja enfocar sin un
  * toque. Ahí hace falta tocar el monto una vez.
  */
+export type CampoImporteHandle = { enfocar: () => void }
+
 export function CampoImporte({
   valor,
   onChange,
   autoFocus = false,
+  ref: handle,
 }: {
   valor: Importe
   onChange: (i: Importe) => void
   /** Solo en un alta: al editar, el teclado abierto taparía el resto. */
   autoFocus?: boolean
+  /** Para que el formulario lo vuelva a enfocar después de guardar. */
+  ref?: Ref<CampoImporteHandle>
 }) {
   const ref = useRef<HTMLInputElement>(null)
+  useImperativeHandle(handle, () => ({ enfocar: () => ref.current?.focus() }), [])
+
   // El listener es nativo (React no expone `inputType` en `onBeforeInput`), así
   // que lee el valor actual de una ref y no de una clausura vieja.
   const actual = useRef({ valor, onChange })
@@ -43,11 +56,17 @@ export function CampoImporte({
     const el = ref.current
     if (!el) return
     function alEntrar(e: InputEvent) {
+      // `insertCompositionText` no se puede cancelar: lo levanta el `onChange`.
+      if (!e.cancelable) return
       e.preventDefault()
       const { valor, onChange } = actual.current
       const datos = e.data ?? e.dataTransfer?.getData('text/plain') ?? null
       const nuevo = aplicarEntrada(valor, e.inputType, datos)
-      if (nuevo !== valor) onChange(nuevo)
+      if (nuevo === valor) return
+      // Se actualiza ya, sin esperar el render: si llegan dos teclas antes del
+      // commit, la segunda parte del valor nuevo y no se pierde un dígito.
+      actual.current = { ...actual.current, valor: nuevo }
+      onChange(nuevo)
     }
     el.addEventListener('beforeinput', alEntrar)
     return () => el.removeEventListener('beforeinput', alEntrar)
@@ -82,9 +101,14 @@ export function CampoImporte({
         autoFocus={autoFocus}
         value={vacio ? '' : mostrar(valor)}
         placeholder="0"
-        // Todo cambio llega por `beforeinput`; esto solo calma a React por
-        // tener un campo controlado sin `onChange`.
-        onChange={() => {}}
+        // Lo normal es que todo llegue por `beforeinput` y acá no pase nada. Si
+        // el navegador igual cambió el texto —teclados que componen, como
+        // algunos de Samsung—, se re-lee entero en vez de perder la tecla.
+        onChange={(e) => {
+          const nuevo = desdeTexto(e.currentTarget.value)
+          actual.current = { ...actual.current, valor: nuevo }
+          onChange(nuevo)
+        }}
         // Enter en el teclado del celular cierra el teclado en vez de mandar
         // el formulario a medio llenar.
         onKeyDown={(e) => {

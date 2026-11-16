@@ -233,3 +233,24 @@ describe('desdeTexto', () => {
     expect(estaVacio(desdeTexto('abc'))).toBe(true)
   })
 })
+
+describe('desdeTexto con punto decimal (pegado en formato US)', () => {
+  it('un punto con 1 o 2 dígitos al final y sin coma es decimal', () => {
+    expect(aCentavos(desdeTexto('1500.50'))).toBe(150_050)
+    expect(aCentavos(desdeTexto('1500.5'))).toBe(150_050)
+    expect(aCentavos(desdeTexto('$ 99.90'))).toBe(9_990)
+  })
+
+  it('con 3 dígitos después del punto sigue siendo de miles', () => {
+    expect(aCentavos(desdeTexto('1.500'))).toBe(150_000)
+    expect(aCentavos(desdeTexto('1.500.000'))).toBe(150_000_000)
+  })
+
+  it('si hay coma, la coma manda y los puntos son miles', () => {
+    expect(aCentavos(desdeTexto('1.500,50'))).toBe(150_050)
+  })
+
+  it('pegar en formato US entra igual por aplicarEntrada', () => {
+    expect(aCentavos(aplicarEntrada(IMPORTE_VACIO, 'insertFromPaste', '1500.50'))).toBe(150_050)
+  })
+})
