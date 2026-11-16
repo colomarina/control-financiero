@@ -1,8 +1,11 @@
 import { notFound } from 'next/navigation'
 import { getMovimiento, getMovimientosDesde } from '@/lib/db/movimientos'
 import { getComercios } from '@/lib/db/comercios'
-import { hoyISO, mesActual, sumarMeses } from '@/lib/core/fechas'
+import { getConfig } from '@/lib/db/config'
+import { getGastosFijos } from '@/lib/db/gastosFijos'
+import { hoyISO, mesActual, mesDe, sumarMeses } from '@/lib/core/fechas'
 import { comerciosFrecuentes } from '@/lib/core/frecuentes'
+import { umbralesPuntual } from '@/lib/core/puntuales'
 import { FormGasto } from '@/components/FormGasto'
 
 /**
@@ -23,10 +26,15 @@ export default async function EditarMovimientoPage({
   // El RLS ya filtra por usuario: si no aparece, o no existe o no es tuyo.
   if (!movimiento) notFound()
 
-  const [comercios, movs] = await Promise.all([
+  const mes = mesActual()
+  const desde = sumarMeses(mes, -1)
+  const [comercios, config, fijos] = await Promise.all([
     getComercios(),
-    getMovimientosDesde(sumarMeses(mesActual(), -1)),
+    getConfig(),
+    getGastosFijos(),
   ])
+  const movs = await getMovimientosDesde(sumarMeses(mes, -config.mesesHistorico))
+  const recientes = movs.filter((m) => mesDe(m.fecha) >= desde)
 
   return (
     <div className="gap-space-lg flex flex-col">
@@ -39,8 +47,9 @@ export default async function EditarMovimientoPage({
 
       <FormGasto
         comercios={comercios}
-        frecuentes={comerciosFrecuentes(movs, comercios)}
+        frecuentes={comerciosFrecuentes(recientes, comercios)}
         hoy={hoyISO()}
+        umbrales={umbralesPuntual(movs, fijos, mes, config.mesesHistorico)}
         movimiento={movimiento}
       />
     </div>

@@ -35,6 +35,8 @@ import {
 import { parsearImporte, formatoARS } from '@/lib/core/dinero'
 import { nombreMes } from '@/lib/core/fechas'
 import { resumenPlan } from '@/lib/core/cuotas'
+import { TOPE_DE_FORMA_PAGO } from '@/lib/core/gastos'
+import type { Tope } from '@/lib/core/puntuales'
 import { cn } from '@/lib/utils'
 
 /**
@@ -54,6 +56,7 @@ export function FormGasto({
   movimiento,
   compra,
   minimoCuotas = 1,
+  umbrales = { tarjeta: null, efectivo: null },
 }: {
   comercios: Comercio[]
   /** Atajos: los comercios más usados en los últimos dos meses. */
@@ -69,6 +72,11 @@ export function FormGasto({
    * necesita "hoy", y este componente es cliente— y no se usa fuera de ese modo.
    */
   minimoCuotas?: number
+  /**
+   * Desde qué importe (centavos) una compra se sugiere como puntual, por tope.
+   * `null` si no hay histórico. Sin usar al editar una compra en cuotas.
+   */
+  umbrales?: Record<Tope, number | null>
 }) {
   // Tres modos: alta (ninguno de los dos), editar un movimiento suelto, o
   // editar una compra en cuotas. `base` junta los campos que movimiento y
@@ -119,6 +127,9 @@ export function FormGasto({
   // oculto; este estado es la única copia que el resumen necesita leer.
   const [cuotas, setCuotas] = useState(compra?.cuotas ?? 1)
   const [fecha, setFecha] = useState(base?.fecha ?? hoy)
+  // `null` = sin decisión manual: manda la sugerencia por monto. Siempre viaja
+  // en el form (también al editar), o cada edición borraría una marca manual.
+  const [forzado, setForzado] = useState<boolean | null>(movimiento?.puntual ?? null)
   const listaId = useId()
   const formRef = useRef<HTMLFormElement>(null)
 
@@ -160,6 +171,7 @@ export function FormGasto({
       setVersionFecha((v) => v + 1)
       setFecha(hoy)
       setCuotas(1)
+      setForzado(null)
     })
   }
 
@@ -224,6 +236,11 @@ export function FormGasto({
 
   const elegido = comercios.find((c) => c.id === comercioId)
 
+  const umbral = umbrales[TOPE_DE_FORMA_PAGO[formaPago]]
+  const importeCentavos = parsearImporte(mostrar(importe)) ?? 0
+  const sugerido = umbral !== null && importeCentavos > umbral
+  const puntualActivo = forzado ?? sugerido
+
   return (
     <form ref={formRef} action={enviar} className="gap-space-md flex flex-col">
       {base && <input type="hidden" name="id" value={base.id} />}
@@ -238,6 +255,13 @@ export function FormGasto({
           campo. Sí va en alta (venga o no a ser una compra) y al editar una
           compra, que siempre manda `cuotas`. */}
       {!movimiento && <input type="hidden" name="cuotas" value={cuotas} />}
+      {!esCompra && (
+        <input
+          type="hidden"
+          name="puntual"
+          value={forzado === null ? '' : forzado ? 'si' : 'no'}
+        />
+      )}
 
       <Card>
         <TituloCard>Importe</TituloCard>
@@ -391,6 +415,41 @@ export function FormGasto({
           </div>
         </fieldset>
       </Card>
+
+      {!esCompra && cuotas < 2 && (
+        <Card>
+          <div className="gap-space-md flex items-center justify-between">
+            <div className="gap-space-xs flex flex-col">
+              <span id="puntual-titulo" className="text-body-md text-on-surface">
+                Compra puntual
+              </span>
+              <span className="text-body-sm text-on-surface-variant">
+                {forzado === null && sugerido
+                  ? 'Lo marcamos por el monto'
+                  : 'No se proyecta al resto del mes'}
+              </span>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={puntualActivo}
+              aria-labelledby="puntual-titulo"
+              onClick={() => setForzado(!puntualActivo)}
+              className={cn(
+                'relative h-7 w-12 shrink-0 rounded-full transition-colors',
+                puntualActivo ? 'bg-primary' : 'bg-surface-container-high',
+              )}
+            >
+              <span
+                className={cn(
+                  'absolute top-1 left-1 h-5 w-5 rounded-full transition-transform',
+                  puntualActivo ? 'bg-on-primary translate-x-5' : 'bg-on-surface-variant',
+                )}
+              />
+            </button>
+          </div>
+        </Card>
+      )}
 
       <Card>
         <div className="gap-space-sm grid grid-cols-2">
