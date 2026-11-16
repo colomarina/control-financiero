@@ -165,6 +165,11 @@ un `<label>` para agrandar el área táctil (tocar una etiqueta *enfoca* el sele
 abre el desplegable) y taparlo con una copia decorativa en `opacity-0` (el menú **hereda la
 opacidad** y abre encima en vez de abajo).
 
+**Tampoco `confirm()` nativo** para acciones destructivas: lo dibuja el sistema operativo y
+no se puede vestir, mismo motivo. Se confirma con doble toque: el primero pasa el botón a
+`error` lleno ("Tocá de nuevo para borrar") con el aviso debajo, y a los 4 s se desarma
+solo (`FormGasto`).
+
 ### Navegación
 - **Header** fijo arriba (`fixed top-0`), con `backdrop-blur`, logo + título de pantalla
   + selector de período (mes) + avatar.

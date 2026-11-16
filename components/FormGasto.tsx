@@ -1,6 +1,6 @@
 'use client'
 
-import { useId, useRef, useState, useTransition } from 'react'
+import { useEffect, useId, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import {
@@ -92,6 +92,13 @@ export function FormGasto({
   const [saliendo, setSaliendo] = useState(false)
   /** Para que el botón de borrar no diga "Guardando…", que sería mentira. */
   const [borrando, setBorrando] = useState(false)
+  /**
+   * Borrar pide dos toques en vez del `confirm()` del sistema, que lo dibuja el
+   * SO y no se puede vestir. El primero arma la confirmación; si no llega el
+   * segundo en 4 s, se desarma sola.
+   */
+  const [confirmando, setConfirmando] = useState(false)
+  const temporizador = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pendiente = enTransicion || saliendo
   const [importe, setImporte] = useState<Importe>(
     movimiento
@@ -156,12 +163,31 @@ export function FormGasto({
     })
   }
 
+  function limpiarTemporizador() {
+    if (temporizador.current) clearTimeout(temporizador.current)
+    temporizador.current = null
+  }
+
+  // Si el componente se desmonta con la ventana abierta, no queda un
+  // setState colgado.
+  useEffect(() => limpiarTemporizador, [])
+
+  const mensajeBorrar = compra
+    ? `Se borra la compra en ${compra.comercio} y desaparecen también las cuotas que ya pasaron. No se puede deshacer.`
+    : base
+      ? `Se borra el gasto de ${base.comercio}. No se puede deshacer.`
+      : ''
+
   function borrar() {
     if (!base) return
-    const mensaje = compra
-      ? `¿Borrar la compra en ${compra.comercio}? Desaparecen también las cuotas que ya pasaron. No se puede deshacer.`
-      : `¿Borrar el gasto de ${base.comercio}? No se puede deshacer.`
-    if (!confirm(mensaje)) return
+    if (!confirmando) {
+      setConfirmando(true)
+      limpiarTemporizador()
+      temporizador.current = setTimeout(() => setConfirmando(false), 4000)
+      return
+    }
+    limpiarTemporizador()
+    setConfirmando(false)
 
     setBorrando(true)
     startTransition(async () => {
@@ -419,15 +445,29 @@ export function FormGasto({
           type="button"
           onClick={borrar}
           disabled={pendiente}
-          className="text-error text-body-md gap-space-sm flex h-12 w-full items-center justify-center rounded-lg transition-transform active:scale-95 disabled:opacity-40"
+          className={cn(
+            'text-body-md gap-space-sm flex h-12 w-full items-center justify-center rounded-lg transition-transform active:scale-95 disabled:opacity-40',
+            confirmando ? 'bg-error text-on-error' : 'text-error',
+          )}
         >
           <Icono nombre={borrando ? 'hourglass_top' : 'delete'} className="text-[20px]" />
           {/* "Borrar gasto" alcanza para un movimiento: desaparece y listo. Una
               compra necesita la aclaración, porque bajar las cuotas (arriba)
               también borra algo —las que faltaban— y es la operación correcta
               para una baja o devolución. Esto es para "lo cargué mal". */}
-          {borrando ? 'Borrando…' : esCompra ? 'Borrar — lo cargué mal' : 'Borrar gasto'}
+          {borrando
+            ? 'Borrando…'
+            : confirmando
+              ? 'Tocá de nuevo para borrar'
+              : esCompra
+                ? 'Borrar — lo cargué mal'
+                : 'Borrar gasto'}
         </button>
+      )}
+      {esEdicion && confirmando && (
+        <p role="status" className="text-on-surface-variant text-body-sm text-center">
+          {mensajeBorrar}
+        </p>
       )}
     </form>
   )
