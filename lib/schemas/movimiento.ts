@@ -66,6 +66,8 @@ export const movimientoDetalleSchema = movimientoSchema.extend({
   categoria: z.string(),
   subcategoria: z.string().nullable(),
   esFijo: z.boolean(),
+  /** Marca manual de compra puntual. Ausente o `null` = lo decide la app. */
+  puntual: z.boolean().nullable().optional(),
 })
 
 export type MovimientoDetalle = z.infer<typeof movimientoDetalleSchema>
@@ -79,6 +81,7 @@ export const nuevoMovimientoSchema = z.object({
   banco: z.string().trim().max(60).nullable().default(null),
   tarjeta: z.string().trim().max(60).nullable().default(null),
   nota: z.string().trim().max(200).nullable().default(null),
+  puntual: z.boolean().nullable().default(null),
 })
 
 export type NuevoMovimiento = z.input<typeof nuevoMovimientoSchema>

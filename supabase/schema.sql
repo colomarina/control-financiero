@@ -79,6 +79,10 @@ create table if not exists movimientos (
 );
 
 -- El índice que pide la consulta de todas las pantallas: "los movimientos del mes".
+-- `puntual`: marca manual de compra puntual (no recurrente). null = lo decide la
+-- app; true/false = el usuario lo forzó. Idempotente para bases ya creadas.
+alter table movimientos add column if not exists puntual boolean;
+
 create index if not exists movimientos_user_fecha_ix
   on movimientos (user_id, fecha desc);
 
@@ -258,7 +262,9 @@ select
   c.nombre        as comercio,
   c.categoria,
   c.subcategoria,
-  c.es_fijo
+  c.es_fijo,
+  -- Al final: `create or replace view` solo permite agregar columnas al final.
+  m.puntual
 from movimientos m
 join comercios c on c.id = m.comercio_id;
 

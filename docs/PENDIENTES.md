@@ -42,6 +42,31 @@ código que la usa todavía no está en `master`.
 
 ---
 
+## 0.2 Correr la migración `movimientos_puntual` 🟡
+
+Antes de deployar la rama `seguridad-y-prediccion`: la columna `puntual` y la vista
+`movimientos_detalle` (con `m.puntual` al final) tienen que existir en la base de Supabase,
+o el Home y el Historial fallan al leer. Es aditivo (columna nullable, columna al final de
+la vista), así que el código de `master` sigue andando con la base migrada.
+
+```sql
+alter table movimientos add column if not exists puntual boolean;
+
+create or replace view movimientos_detalle
+with (security_invoker = true) as
+select
+  m.id, m.user_id, m.fecha, to_char(m.fecha, 'YYYY-MM') as mes,
+  m.importe_centavos, m.forma_pago, m.banco, m.tarjeta, m.nota, m.created_at,
+  c.id as comercio_id, c.nombre as comercio, c.categoria, c.subcategoria, c.es_fijo,
+  m.puntual
+from movimientos m
+join comercios c on c.id = m.comercio_id;
+```
+
+Sin backup automático: si se quiere, exportar `movimientos` a CSV desde el Table Editor antes.
+
+---
+
 ## 1. Backup de la base 🔴
 
 **Por qué primero.** El plan Free de Supabase **no tiene backups automáticos ni
