@@ -396,6 +396,10 @@ plan Free de Supabase no hace backups automáticos.
 - **Cambio de contraseña** en `/config` (`cambiarPassword` en `app/actions/auth.ts`), que
   valida la actual con `current_password`. No hay signup: el usuario se crea desde el
   dashboard de Supabase.
+- **Registro cerrado en Supabase** (2026-11-16): la app no tenía pantalla de alta, pero la
+  API de auth sí aceptaba registros. Ahora *Allow new users to sign up* está apagado. Se
+  verifica con `GET <SUPABASE_URL>/auth/v1/settings` (header `apikey` = anon key): tiene
+  que dar `"disable_signup":true`.
 - **`cn` corre sobre tablas precompiladas** (`lib/utils.ts` + `lib/cn-tables.mjs`, que genera
   `npm run cn:build`). tailwind-merge solo conoce la escala de texto built-in, así que
   cualquier `text-algo` del `@theme` le parecía un color: `cn('text-keypad-digits
