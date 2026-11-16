@@ -3,6 +3,7 @@ import { crearCliente } from './client'
 import type { FormaPago } from '@/lib/schemas/movimiento'
 import type { CompraCuotasDetalle } from '@/lib/schemas/compraCuotas'
 import { fallaDb } from '@/lib/db/errores'
+import { leerPaginado } from '@/lib/db/paginar'
 
 /**
  * Repositorio de compras en cuotas.
@@ -57,13 +58,17 @@ function aDominio(f: FilaDetalle): CompraCuotasDetalle {
  */
 export async function getComprasEnCuotas(): Promise<CompraCuotasDetalle[]> {
   const supabase = await crearCliente()
-  const { data, error } = await supabase
-    .from('compras_cuotas_detalle')
-    .select(COLUMNAS)
-    .order('fecha', { ascending: false })
-
-  if (error) fallaDb('leer las compras en cuotas', error)
-  return (data as unknown as FilaDetalle[]).map(aDominio)
+  const filas = await leerPaginado<FilaDetalle>(async (d, h) => {
+    const { data, error } = await supabase
+      .from('compras_cuotas_detalle')
+      .select(COLUMNAS)
+      .order('fecha', { ascending: false })
+      .order('id')
+      .range(d, h)
+    if (error) fallaDb('leer las compras en cuotas', error)
+    return data as unknown as FilaDetalle[]
+  })
+  return filas.map(aDominio)
 }
 
 /** Una compra en cuotas por id, o `null` si no existe (o no es de este usuario: lo filtra el RLS). */

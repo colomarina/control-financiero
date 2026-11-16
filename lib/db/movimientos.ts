@@ -3,6 +3,7 @@ import { crearCliente } from './client'
 import type { FormaPago, MovimientoDetalle } from '@/lib/schemas/movimiento'
 import { diasDelMes, type Mes } from '@/lib/core/fechas'
 import { fallaDb } from '@/lib/db/errores'
+import { leerPaginado } from '@/lib/db/paginar'
 
 /**
  * Repositorio de movimientos.
@@ -59,15 +60,19 @@ function rangoDelMes(mes: Mes): [string, string] {
 export async function getMovimientosDelMes(mes: Mes): Promise<MovimientoDetalle[]> {
   const [desde, hasta] = rangoDelMes(mes)
   const supabase = await crearCliente()
-  const { data, error } = await supabase
-    .from('movimientos_detalle')
-    .select(COLUMNAS)
-    .gte('fecha', desde)
-    .lte('fecha', hasta)
-    .order('fecha', { ascending: false })
-
-  if (error) fallaDb('leer los movimientos', error)
-  return (data as unknown as FilaDetalle[]).map(aDominio)
+  const filas = await leerPaginado<FilaDetalle>(async (d, h) => {
+    const { data, error } = await supabase
+      .from('movimientos_detalle')
+      .select(COLUMNAS)
+      .gte('fecha', desde)
+      .lte('fecha', hasta)
+      .order('fecha', { ascending: false })
+      .order('id')
+      .range(d, h)
+    if (error) fallaDb('leer los movimientos', error)
+    return data as unknown as FilaDetalle[]
+  })
+  return filas.map(aDominio)
 }
 
 /**
@@ -76,26 +81,18 @@ export async function getMovimientosDelMes(mes: Mes): Promise<MovimientoDetalle[
  */
 export async function getMovimientosDesde(mes: Mes): Promise<MovimientoDetalle[]> {
   const supabase = await crearCliente()
-  const { data, error } = await supabase
-    .from('movimientos_detalle')
-    .select(COLUMNAS)
-    .gte('fecha', `${mes}-01`)
-    .order('fecha', { ascending: false })
-
-  if (error) fallaDb('leer los movimientos', error)
-  return (data as unknown as FilaDetalle[]).map(aDominio)
-}
-
-/** Los meses que tienen al menos un movimiento, del más nuevo al más viejo. */
-export async function getMesesConMovimientos(): Promise<Mes[]> {
-  const supabase = await crearCliente()
-  const { data, error } = await supabase
-    .from('movimientos_detalle')
-    .select('mes')
-    .order('mes', { ascending: false })
-
-  if (error) fallaDb('leer los meses', error)
-  return [...new Set((data as unknown as { mes: string }[]).map((f) => f.mes))]
+  const filas = await leerPaginado<FilaDetalle>(async (d, h) => {
+    const { data, error } = await supabase
+      .from('movimientos_detalle')
+      .select(COLUMNAS)
+      .gte('fecha', `${mes}-01`)
+      .order('fecha', { ascending: false })
+      .order('id')
+      .range(d, h)
+    if (error) fallaDb('leer los movimientos', error)
+    return data as unknown as FilaDetalle[]
+  })
+  return filas.map(aDominio)
 }
 
 export async function crearMovimiento(m: {
