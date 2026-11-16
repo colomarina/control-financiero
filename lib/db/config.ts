@@ -1,5 +1,5 @@
 import 'server-only'
-import { crearCliente } from './client'
+import { crearCliente, usuarioRequerido } from './client'
 import { fallaDb } from '@/lib/db/errores'
 
 /**
@@ -72,12 +72,11 @@ export async function getConfig(): Promise<Config> {
 
 export async function guardarConfig(c: Partial<Config>): Promise<void> {
   const supabase = await crearCliente()
-  const { data: user } = await supabase.auth.getUser()
-  if (!user.user) throw new Error('No hay sesión activa.')
+  const userId = await usuarioRequerido()
 
   const { error } = await supabase.from('config').upsert(
     {
-      user_id: user.user.id,
+      user_id: userId,
       ...(c.topeTarjetaCentavos !== undefined && { tope_tarjeta_centavos: c.topeTarjetaCentavos }),
       ...(c.topeEfectivoCentavos !== undefined && { tope_efectivo_centavos: c.topeEfectivoCentavos }),
       ...(c.sueldoCentavos !== undefined && { sueldo_centavos: c.sueldoCentavos }),

@@ -334,6 +334,9 @@ manda el gasto al día siguiente.
     - Cuando typescript-estree acepte la 11 por su cuenta, el override sobra.
 - **Next 16**: `middleware` se llama `proxy` (`proxy.ts` en la raíz). Cache Components
   está apagado a propósito para que valga el flujo clásico con `revalidatePath`.
+- **La sesión se verifica con `getClaims()`** (firma ES256 validada en local contra el
+  JWKS cacheado, en `proxy.ts` y en `usuarioActual`), nunca con `getSession()`, que no valida
+  nada. `cambiarPassword` sigue con `updateUser` + `current_password`.
 - **Un solo umbral de semáforo**: `config.umbral_cerca_pct` (default 85). El Excel
   original tenía 0,80 / 0,85 / 0,90 conviviendo.
 - **Gráficos**: la paleta del design system reserva verde/ámbar/rojo para el semáforo y

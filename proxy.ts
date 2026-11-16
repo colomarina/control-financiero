@@ -31,9 +31,11 @@ export async function proxy(request: NextRequest) {
     },
   )
 
-  // getUser() valida el token contra el servidor de auth. No usar getSession()
-  // acá: solo lee la cookie, que el cliente podría haber falsificado.
-  const { data: { user } } = await supabase.auth.getUser()
+  // getClaims() valida la firma del JWT en local: con claves asimétricas (ES256)
+  // la verifica contra el JWKS cacheado, sin ir al servidor de auth. Sigue sin
+  // ser getSession(), que solo lee la cookie y no valida nada.
+  const { data } = await supabase.auth.getClaims()
+  const user = data?.claims?.sub ?? null
 
   const esLogin = request.nextUrl.pathname.startsWith('/login')
 

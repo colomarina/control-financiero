@@ -48,13 +48,16 @@ export async function crearCliente() {
 
 /**
  * El usuario de la sesión actual, o `null`.
- * Usa `getUser()` (valida contra el servidor de auth), nunca `getSession()`,
- * que solo lee la cookie y se puede falsificar.
+ * Usa `getClaims()`: valida la firma del JWT en local (ES256 contra el JWKS
+ * cacheado), sin ir al servidor de auth en cada request. Nunca `getSession()`,
+ * que solo lee la cookie y no valida nada. `email` viene del propio token.
  */
-export async function usuarioActual() {
+export async function usuarioActual(): Promise<{ id: string; email?: string } | null> {
   const supabase = await crearCliente()
-  const { data } = await supabase.auth.getUser()
-  return data.user
+  const { data } = await supabase.auth.getClaims()
+  const claims = data?.claims
+  if (!claims?.sub) return null
+  return { id: claims.sub, email: claims.email }
 }
 
 /** El id del usuario, o explota. Para los repositorios, que siempre necesitan uno. */
