@@ -116,6 +116,19 @@ describe('presupuestoVsReal', () => {
   it('un mes sin plan devuelve vacío', () => {
     expect(presupuestoVsReal(plan, movs, '2026-12')).toEqual([])
   })
+
+  it('gastar justo lo planeado es completo, no al-limite', () => {
+    const justo = [...movs, mov({ comercioId: ID.gym, comercio: 'Gym', importeCentavos: 200_000 })]
+    const gym = presupuestoVsReal(plan, justo, '2026-10').find((f) => f.comercio === 'Gym')!
+    expect(gym).toMatchObject({ estado: 'completo', diferencia: 0, porcentajeUsado: 100 })
+  })
+
+  it('lo completo va al fondo: arriba queda lo que todavía tiene plata', () => {
+    const justo = [...movs, mov({ comercioId: ID.gym, comercio: 'Gym', importeCentavos: 200_000 })]
+    expect(presupuestoVsReal(plan, justo, '2026-10').map((f) => f.comercio)).toEqual([
+      'Verdulería', 'Milanesas', 'Farmacia', 'Gym',
+    ])
+  })
 })
 
 describe('resumenPresupuesto', () => {

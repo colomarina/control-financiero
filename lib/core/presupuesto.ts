@@ -16,7 +16,12 @@ import type { Mes } from './fechas'
  * pero su fórmula nunca filtraba por eso.)
  */
 
-export type EstadoPresupuesto = 'sin-plan' | 'ok' | 'al-limite' | 'excedido'
+/**
+ * `completo`: se gastó exactamente lo planeado. No es una alerta sino lo
+ * contrario —el plan se cumplió—; antes caía en `al-limite` (100% > 85%) y
+ * aparecía arriba de todo en ámbar.
+ */
+export type EstadoPresupuesto = 'sin-plan' | 'ok' | 'al-limite' | 'excedido' | 'completo'
 
 export interface FilaPresupuesto {
   comercioId: string
@@ -34,7 +39,9 @@ export interface FilaPresupuesto {
  * Compara el plan del mes contra lo realmente gastado.
  *
  * Devuelve una fila por línea del plan, ordenadas por lo que más se te fue de
- * cauce: primero lo excedido, después lo que está al límite.
+ * cauce: primero lo excedido, después lo que está al límite. Lo completo va
+ * al fondo: ya no pide nada, y arriba tiene que quedar lo que todavía tiene
+ * plata por gastar.
  */
 export function presupuestoVsReal(
   plan: LineaPresupuestoDetalle[],
@@ -64,7 +71,9 @@ export function presupuestoVsReal(
           ? 'sin-plan'
           : real > planeado
             ? 'excedido'
-            : pct > umbralCerca
+            : real === planeado
+              ? 'completo'
+              : pct > umbralCerca
               ? 'al-limite'
               : 'ok'
 
@@ -84,6 +93,7 @@ export function presupuestoVsReal(
     'al-limite': 1,
     ok: 2,
     'sin-plan': 3,
+    completo: 4,
   }
 
   return filas.sort(

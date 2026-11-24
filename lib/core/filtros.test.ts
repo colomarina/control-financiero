@@ -8,6 +8,7 @@ import {
   criteriosDe,
   hayFiltro,
   SIN_FILTROS,
+  FILTRO_TOPE,
 } from './filtros'
 
 let n = 0
@@ -100,6 +101,20 @@ describe('filtros exactos', () => {
     expect(filtrarMovimientos(MOVS, { formaPago: 'efectivo' }).map((m) => m.comercio)).toEqual([
       'Shell',
     ])
+  })
+
+  it('por tope: "tarjeta" junta crédito, débito y débito automático', () => {
+    expect(filtrarMovimientos(MOVS, { tope: 'tarjeta' }).map((m) => m.comercio)).toEqual([
+      'Coto',
+      'Prepaga',
+      'Farmacia',
+    ])
+  })
+
+  it('por tope: "efectivo" junta efectivo y transferencia', () => {
+    const conTransferencia = [...MOVS, mov({ comercio: 'Verdulería', formaPago: 'transferencia' })]
+    expect(filtrarMovimientos(conTransferencia, { tope: 'efectivo' }).map((m) => m.comercio))
+      .toEqual(['Shell', 'Verdulería'])
   })
 
   it('null y undefined no filtran', () => {
@@ -205,7 +220,14 @@ describe('criteriosDe', () => {
 
   it('traduce lo que puso el usuario', () => {
     expect(criteriosDe({ texto: 'coto', categoria: 'Salud', formaPago: 'efectivo', mes: '2026-09' }))
-      .toEqual({ texto: 'coto', categoria: 'Salud', formaPago: 'efectivo', mes: '2026-09' })
+      .toEqual({ texto: 'coto', categoria: 'Salud', formaPago: 'efectivo', tope: null, mes: '2026-09' })
+  })
+
+  it('"Todo tarjeta" viaja en formaPago y sale como tope', () => {
+    const c = criteriosDe({ ...SIN_FILTROS, formaPago: FILTRO_TOPE.tarjeta })
+    expect(c.tope).toBe('tarjeta')
+    expect(c.formaPago).toBeNull()
+    expect(filtrarMovimientos(MOVS, c)).toHaveLength(3)
   })
 })
 
