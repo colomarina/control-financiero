@@ -499,6 +499,12 @@ plan Free de Supabase no hace backups automáticos.
   - **Al tocar el matcher de `proxy.ts`**, acordarse de que `manifest.webmanifest` y `sw.js`
     tienen que seguir afuera. El navegador los pide por su cuenta —el manifest a veces sin
     cookies— y un redirect al login rompe la instalación.
+- **Presupuesto: "Listo" y "Mover plata"**. Gastar justo lo planeado es el estado `completo`
+  ("Listo ✓", verde, al fondo de la lista). Y `MoverPlata` pasa lo no gastado del plan de un
+  comercio al de otro en el mismo mes —"no hubo fulbito, esa plata fue a la carnicería"—: se
+  reescribe el plan, nunca los movimientos. Las reglas viven en `moverPlata`
+  (`lib/core/presupuesto.ts`): solo se mueve lo que no se gastó, y el destino puede no estar
+  en el plan. Las dos líneas van en un solo upsert (`reescribirLineas`), que es atómico.
 - **Compras en cuotas**: la compra se guarda **una sola vez** (`compras_cuotas` + la vista
   `compras_cuotas_detalle`, DDL en `supabase/schema.sql`) y las cuotas **no se guardan
   nunca**: las deriva `lib/core/cuotas.ts` mes a mes, materializadas como objetos que cumplen
