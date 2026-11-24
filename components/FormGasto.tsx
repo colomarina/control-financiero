@@ -26,6 +26,8 @@ import { Card, TituloCard, Banner, campo, botonPrimario } from '@/components/ds'
 import { Icono } from '@/components/Icono'
 import { CampoImporte, type CampoImporteHandle } from '@/components/CampoImporte'
 import { CampoSelect } from '@/components/CampoSelect'
+import { usaTarjeta } from '@/lib/core/tarjetas'
+import type { Tarjeta } from '@/lib/schemas/tarjeta'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { CampoFecha } from '@/components/CampoFecha'
 import {
@@ -63,6 +65,9 @@ export function FormGasto({
   umbrales = { tarjeta: null, efectivo: null },
   formasFrecuentes = ['tarjeta_credito', 'tarjeta_debito'],
   ultimaForma = {},
+  tarjetas = [],
+  ultimaTarjeta = {},
+  tarjetaDefecto = null,
 }: {
   comercios: Comercio[]
   /** Atajos: los comercios más usados en los últimos dos meses. */
@@ -87,6 +92,12 @@ export function FormGasto({
   formasFrecuentes?: FormaPago[]
   /** Con qué se pagó cada comercio la última vez (id -> forma), para preseleccionar en un alta. */
   ultimaForma?: Record<string, FormaPago>
+  /** Las tarjetas que se ofrecen: las activas, más la del gasto que se edita aunque esté de baja. */
+  tarjetas?: Tarjeta[]
+  /** Con qué tarjeta se pagó cada comercio la última vez (id -> tarjetaId). */
+  ultimaTarjeta?: Record<string, string>
+  /** La tarjeta de un alta cuando el comercio no tiene historia: la más usada. */
+  tarjetaDefecto?: string | null
 }) {
   // Tres modos: alta (ninguno de los dos), editar un movimiento suelto, o
   // editar una compra en cuotas. `base` junta los campos que movimiento y
@@ -144,6 +155,10 @@ export function FormGasto({
   const [forzado, setForzado] = useState<boolean | null>(movimiento?.puntual ?? null)
   // Una forma elegida a mano no la pisa la preselección por comercio.
   const [formaTocada, setFormaTocada] = useState(false)
+  // Mismo criterio para la tarjeta: viaja siempre en el form, pero la action
+  // la descarta si la forma de pago no pasa por una (efectivo, transferencia).
+  const [tarjetaId, setTarjetaId] = useState(base?.tarjetaId ?? tarjetaDefecto ?? '')
+  const [tarjetaTocada, setTarjetaTocada] = useState(false)
   const listaId = useId()
   const formRef = useRef<HTMLFormElement>(null)
   const importeRef = useRef<CampoImporteHandle>(null)
@@ -189,6 +204,8 @@ export function FormGasto({
       setForzado(null)
       setFormaPago(formasFrecuentes[0] ?? 'tarjeta_credito')
       setFormaTocada(false)
+      setTarjetaId(tarjetaDefecto ?? '')
+      setTarjetaTocada(false)
       // Listo para el próximo gasto sin tener que tocar el monto.
       importeRef.current?.enfocar()
     })
@@ -255,6 +272,11 @@ export function FormGasto({
       tocada: formaTocada,
     })
     if (forma) setFormaPago(forma)
+
+    // La tarjeta sigue la misma regla: solo en un alta y si no se eligió a mano.
+    if (base === undefined && !tarjetaTocada) {
+      setTarjetaId(ultimaTarjeta[id] ?? tarjetaDefecto ?? '')
+    }
   }
 
   function elegirForma(f: FormaPago) {
@@ -285,6 +307,7 @@ export function FormGasto({
       {base && <input type="hidden" name="id" value={base.id} />}
       <input type="hidden" name="comercioId" value={comercioId} />
       <input type="hidden" name="formaPago" value={formaPago} />
+      <input type="hidden" name="tarjetaId" value={tarjetaId} />
 
       {/* El importe es el protagonista. El valor viaja como texto ('1.500,50')
           porque la action lo parsea con `parsearImporte`. Con 2+ cuotas es el
@@ -471,6 +494,22 @@ export function FormGasto({
               if (forma.success) elegirForma(forma.data)
             }}
           />
+          {/* Con qué tarjeta: decide si el gasto suma a la meta del banco.
+              Solo para las formas que pasan por el resumen. */}
+          {usaTarjeta(formaPago) && tarjetas.length > 0 && (
+            <CampoSelect
+              variante="filtro"
+              icono="credit_card"
+              titulo="Tarjeta"
+              placeholder="Elegí una"
+              opciones={tarjetas.map((t) => ({ valor: t.id, etiqueta: t.nombre }))}
+              valor={tarjetaId}
+              onCambio={(v) => {
+                setTarjetaId(v)
+                setTarjetaTocada(true)
+              }}
+            />
+          )}
         </fieldset>
       </Card>
 

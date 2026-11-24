@@ -30,6 +30,13 @@ const schema = z.object({
     .int()
     .min(1, 'El histórico va entre 1 y 24 meses')
     .max(24, 'El histórico va entre 1 y 24 meses'),
+  metaMinimoCentavos: z.int().nonnegative(),
+  metaColchonCentavos: z.int().nonnegative(),
+  metaDiaCierre: z.coerce
+    .number()
+    .int()
+    .min(1, 'El día de cierre va entre 1 y 31')
+    .max(31, 'El día de cierre va entre 1 y 31'),
 })
 
 /** Los campos que llegan como plata: texto -> centavos. */
@@ -39,6 +46,8 @@ const CAMPOS_PLATA = [
   ['sueldo', 'sueldoCentavos'],
   ['objetivoGasto', 'objetivoGastoMensualCentavos'],
   ['cotizacionUsd', 'cotizacionUsdCentavos'],
+  ['metaMinimo', 'metaMinimoCentavos'],
+  ['metaColchon', 'metaColchonCentavos'],
 ] as const
 
 export async function guardarParametros(
@@ -64,6 +73,7 @@ export async function guardarParametros(
     objetivoAhorroUsd: formData.get('objetivoAhorroUsd'),
     umbralCercaPct: formData.get('umbralCercaPct'),
     mesesHistorico: formData.get('mesesHistorico'),
+    metaDiaCierre: formData.get('metaDiaCierre'),
   })
 
   if (!parsed.success) {

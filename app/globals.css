@@ -352,3 +352,26 @@
     user-select: none;
   }
 }
+
+/*
+ * Modo privado del Home: el ojito del encabezado cambia cada importe por
+ * `$ ***`, por si hay gente cerca. El atributo lo pone en <html> un script del
+ * layout antes del primer pintado (así no se ven los números ni un instante al
+ * recargar), y lo conmuta `BotonPrivado`. Solo actúa adentro de
+ * `.zona-privada`: el resto de las pantallas no tiene el botón.
+ *
+ * Cada importe se dibuja dos veces (`Privado` en components/ds.tsx): el valor
+ * y la máscara. `Monto` y `MontoHero` ya lo traen; los textos con importes
+ * adentro usan `ConMontos`.
+ */
+.privado-mascara {
+  display: none;
+}
+
+html[data-privado] .zona-privada .privado-valor {
+  display: none;
+}
+
+html[data-privado] .zona-privada .privado-mascara {
+  display: inline;
+}

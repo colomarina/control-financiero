@@ -5,18 +5,19 @@ import Link from 'next/link'
 import {
   filtrarMovimientos,
   categoriasDe,
+  tarjetasDe,
   totalDe,
   criteriosDe,
   SIN_FILTROS,
   type Filtros,
 } from '@/lib/core/filtros'
 import { formatoARS } from '@/lib/core/dinero'
-import { fechaCorta, type Mes } from '@/lib/core/fechas'
+import type { Mes } from '@/lib/core/fechas'
 import { rutaDeMovimiento } from '@/lib/core/cuotas'
-import { ETIQUETA_FORMA_PAGO, type MovimientoDetalle } from '@/lib/schemas/movimiento'
+import type { MovimientoDetalle } from '@/lib/schemas/movimiento'
 import { Card, ItemLista, Separador, Monto } from '@/components/ds'
 import { FiltrosMovimientos } from '@/components/FiltrosMovimientos'
-import { iconoDe, TituloMovimiento } from '@/components/ListaMovimientos'
+import { DetalleMovimiento, iconoDe, TituloMovimiento } from '@/components/ListaMovimientos'
 
 /** Cuántos resultados se dibujan. Más que esto no se lee, se scrollea. */
 const TOPE_VISIBLE = 50
@@ -43,6 +44,7 @@ export function BuscadorMovimientos({
   const [filtros, setFiltros] = useState<Filtros>(SIN_FILTROS)
 
   const categorias = useMemo(() => categoriasDe(movimientos), [movimientos])
+  const tarjetas = useMemo(() => tarjetasDe(movimientos), [movimientos])
   const filtrados = useMemo(
     () => filtrarMovimientos(movimientos, criteriosDe(filtros)),
     [movimientos, filtros],
@@ -56,6 +58,7 @@ export function BuscadorMovimientos({
         valor={filtros}
         onCambio={setFiltros}
         categorias={categorias}
+        tarjetas={tarjetas}
         meses={meses}
         destacada
       />
@@ -97,7 +100,7 @@ export function BuscadorMovimientos({
                   icono={iconoDe(m.categoria)}
                   tonoIcono={m.esFijo ? 'neutro' : 'ok'}
                   titulo={<TituloMovimiento m={m} />}
-                  detalle={`${fechaCorta(m.fecha)} · ${m.categoria} · ${ETIQUETA_FORMA_PAGO[m.formaPago]}`}
+                  detalle={<DetalleMovimiento m={m} conFecha />}
                   derecha={<Monto>{formatoARS(m.importeCentavos)}</Monto>}
                 />
               </Link>

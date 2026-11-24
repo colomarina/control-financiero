@@ -2,8 +2,10 @@ import Link from 'next/link'
 import { formatoARS } from '@/lib/core/dinero'
 import { diaDe } from '@/lib/core/fechas'
 import { esCuota, rutaDeMovimiento } from '@/lib/core/cuotas'
-import { ETIQUETA_FORMA_PAGO, type MovimientoDetalle } from '@/lib/schemas/movimiento'
+import type { MovimientoDetalle } from '@/lib/schemas/movimiento'
+import { lineaDeMovimiento } from '@/lib/core/lineaMovimiento'
 import { Card, ItemLista, Separador, Monto, Badge } from '@/components/ds'
+import { LogoRed } from '@/components/LogoRed'
 
 /**
  * Ícono por categoría. Material Symbols, como pide el design system.
@@ -54,6 +56,27 @@ export function TituloMovimiento({ m }: { m: MovimientoDetalle }) {
   )
 }
 
+/**
+ * La línea de detalle: "Supermercado · [logo] Santander Visa". La arma
+ * `lineaDeMovimiento`; acá solo se mete el logo entre las partes. La comparten
+ * esta lista y el buscador del Historial, como `TituloMovimiento`.
+ */
+export function DetalleMovimiento({
+  m,
+  conFecha = false,
+}: {
+  m: MovimientoDetalle
+  conFecha?: boolean
+}) {
+  const { inicio, medio, red } = lineaDeMovimiento(m, { conFecha })
+  return (
+    <>
+      {inicio} · {red && <LogoRed red={red} ancho={20} className="mr-1" />}
+      {medio}
+    </>
+  )
+}
+
 /** La lista del Home: qué, dónde y cuánto, agrupado por día. */
 export function ListaMovimientos({ movimientos }: { movimientos: MovimientoDetalle[] }) {
   const porDia = new Map<string, MovimientoDetalle[]>()
@@ -87,7 +110,7 @@ export function ListaMovimientos({ movimientos }: { movimientos: MovimientoDetal
                     icono={iconoDe(m.categoria)}
                     tonoIcono={m.esFijo ? 'neutro' : 'ok'}
                     titulo={<TituloMovimiento m={m} />}
-                    detalle={`${m.categoria}${m.subcategoria ? ` · ${m.subcategoria}` : ''} · ${ETIQUETA_FORMA_PAGO[m.formaPago]}`}
+                    detalle={<DetalleMovimiento m={m} />}
                     derecha={<Monto>{formatoARS(m.importeCentavos)}</Monto>}
                   />
                 </Link>

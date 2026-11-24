@@ -66,6 +66,27 @@ join comercios c on c.id = m.comercio_id;
 
 ---
 
+## 0.3 Migración `tarjetas_y_meta` ✅
+
+Hecha el 24/11/2026: tabla `tarjetas` (con RLS), `tarjeta_id` en `movimientos` y
+`compras_cuotas`, `meta_*` en `config` y las dos vistas con `tarjeta_id` al final. Las
+tarjetas se cargaron y los movimientos se completaron: los de julio–septiembre por el texto
+de `banco`/`tarjeta`; los de octubre–noviembre (que no tenían) con la última tarjeta activa
+del comercio, y si no había, Santander Visa. PSA quedó en Amex y PAX en Mercado Pago
+Crédito. Es aditiva: el código de `master` sigue andando con la base migrada.
+
+---
+
+## 4. Simulador "¿puedo gastar X?" 🟢
+
+Punto 4 del plan del 24/11/2026. Primero sin IA: un monto y una forma de pago, y la app
+recalcula el cierre estimado (y la meta, si es con Santander) con ese gasto incluido y
+contesta con el semáforo. Lógica pura en `lib/core`, reusando `prediccionDelTope` y
+`metaDelMes`. Después, opcional: pregunta en texto libre a Claude vía AI Gateway, que
+recibe el resultado del simulador — ojo, eso manda datos financieros afuera.
+
+---
+
 ## 1. Backup de la base 🔴
 
 **Por qué primero.** El plan Free de Supabase **no tiene backups automáticos ni

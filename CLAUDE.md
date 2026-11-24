@@ -242,6 +242,7 @@ tira error, nada se pone en rojo — simplemente la pantalla informa mal la plat
 |---|---|
 | Home: topes, lista ordenada | movimientos **+** cuotas (hasta el mes actual) |
 | Home: cierre estimado (`prediccionDelTope`: ritmo, puntuales, histórico, umbral) | **solo movimientos reales**; las cuotas entran únicamente al `gastado` del tope |
+| Home: meta del banco (`metaDelMes`) | igual que el cierre estimado: reales, y las cuotas del mes aparte (al `gastado`) |
 | Historial: mes a mes, promedio, gráfico, categorías, buscador | movimientos **+** cuotas, **cortando en el mes actual** |
 | Checklist de fijos (`lib/core/fijos.ts`) | **solo movimientos reales** |
 | `/presupuesto` | **solo movimientos reales** |
@@ -271,6 +272,25 @@ Cada fila, con su porqué:
 - **Los atajos de `/cargar` tampoco**, porque `comerciosFrecuentes` ordena por
   cantidad de usos: una compra en 12 cuotas se clavaría arriba de la grilla
   durante un año entero sin que el usuario la haya vuelto a comprar nunca.
+
+**Tarjetas y meta del banco** (`lib/core/tarjetas.ts`, `lib/core/meta.ts`). Cada gasto
+con tarjeta de crédito o débito automático lleva `tarjeta_id` (tabla `tarjetas`): Santander
+Visa, Santander Amex, Mercado Pago Crédito, y las dadas de baja (`activa = false`) que
+siguen nombrando gastos viejos. Las columnas de texto `banco`/`tarjeta` quedan como
+histórico del Excel.
+
+Santander bonifica la cuenta si Visa + Amex (`suma_meta`) consumen un mínimo por resumen
+(`config.meta_minimo_centavos`, hoy $2.000.000). **La meta no es gastar más: es elegir con
+qué tarjeta se paga lo que igual se iba a gastar.** Por eso `metaDelMes` nunca sugiere
+comprar algo ni usar otra tarjeta —cuando no se llega, sugiere pasar a Santander los
+comercios que se pagan en efectivo—, y pasarse del mínimo no es problema de la meta (lo
+cuida el tope). Cuentan compras, débitos automáticos y cuotas; los fijos pendientes suman
+si su comercio se viene pagando con una tarjeta de la meta. Se cuenta por mes calendario
+(el resumen cierra el 24–27 y se paga a principio de mes) y el colchón
+(`meta_colchon_centavos`) cubre la diferencia; solo la alerta roja mira
+`meta_dia_cierre`, porque lo que se compra después del cierre cae en el resumen siguiente.
+Estados, el primero que se cumple: `cumplida` · `cubierta` (los débitos que faltan
+completan) · `urgente` (≤ 3 días al cierre) · `temprano` · `en-camino` · `no-llega`.
 
 **Fechas y zona horaria**: una fecha de movimiento es `"YYYY-MM-DD"` (`date` en
 Postgres), sin hora ni zona. "Hoy" se resuelve siempre con `hoyISO()` /
@@ -505,6 +525,20 @@ plan Free de Supabase no hace backups automáticos.
   reescribe el plan, nunca los movimientos. Las reglas viven en `moverPlata`
   (`lib/core/presupuesto.ts`): solo se mueve lo que no se gastó, y el destino puede no estar
   en el plan. Las dos líneas van en un solo upsert (`reescribirLineas`), que es atómico.
+- **Home compacto y privado.**
+  - Las cuatro cards del Home (dos topes, meta, cierre estimado) son `CardPlegable`: cerradas
+    muestran título, estado, el número y la barra; abiertas, el detalle. Arrancan cerradas.
+  - El ojito del encabezado (`BotonPrivado`) cambia cada importe del Home por `$ ***`. Vive en
+    `data-privado` de `<html>`, que un script inline del layout pone **antes del primer
+    pintado**, y se recuerda por dispositivo en `localStorage`. Cada importe se dibuja dos
+    veces (`Privado` en `ds.tsx`) y el CSS elige: `Monto` y `MontoHero` ya lo traen, y los
+    textos con importes adentro van con `ConMontos`. **Un importe nuevo en el Home que no
+    pase por ahí queda a la vista con el modo puesto.** Solo actúa adentro de `.zona-privada`.
+- **La línea de detalle de un movimiento es una sola**: `lineaDeMovimiento`
+  (`lib/core/lineaMovimiento.ts`), para el Home y el Historial. Categoría y con qué se pagó
+  —la tarjeta si la hay, si no la forma de pago—; la subcategoría no va. Las vistas traen
+  `tarjeta_nombre`, y el filtro de forma de pago suma cada tarjeta (`tarjeta:<id>`) debajo
+  de "Todo tarjeta".
 - **Compras en cuotas**: la compra se guarda **una sola vez** (`compras_cuotas` + la vista
   `compras_cuotas_detalle`, DDL en `supabase/schema.sql`) y las cuotas **no se guardan
   nunca**: las deriva `lib/core/cuotas.ts` mes a mes, materializadas como objetos que cumplen

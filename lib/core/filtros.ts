@@ -22,6 +22,8 @@ export type Criterios = {
    * forma cambia de tope el filtro la sigue solo.
    */
   tope?: TopeFiltro | null
+  /** Una tarjeta puntual ("Santander Visa"), por id. */
+  tarjetaId?: string | null
   /** Un mes entero ('YYYY-MM'). Atajo del rango, que es lo que pide la UI. */
   mes?: Mes | null
   /** Rango inclusivo. Las fechas son 'YYYY-MM-DD', que ordena como string. */
@@ -54,6 +56,12 @@ export const FILTRO_TOPE: Record<TopeFiltro, string> = {
   efectivo: 'tope:efectivo',
 }
 
+/**
+ * Prefijo del valor que pide una tarjeta puntual. Viaja en el mismo campo
+ * `formaPago` que los topes: el selector sigue siendo uno solo.
+ */
+export const PREFIJO_TARJETA = 'tarjeta:'
+
 export const SIN_FILTROS: Filtros = { texto: '', categoria: '', formaPago: '', mes: '' }
 
 /** Si hay algo puesto, para decidir si se ofrece el botón de limpiar. */
@@ -66,11 +74,16 @@ export function criteriosDe(f: Filtros): Criterios {
   const tope = (Object.keys(FILTRO_TOPE) as TopeFiltro[]).find(
     (t) => FILTRO_TOPE[t] === f.formaPago,
   )
+  const tarjetaId = f.formaPago.startsWith(PREFIJO_TARJETA)
+    ? f.formaPago.slice(PREFIJO_TARJETA.length)
+    : null
+  const esForma = !tope && !tarjetaId
   return {
     texto: f.texto,
     categoria: f.categoria || null,
-    formaPago: tope ? null : (f.formaPago as FormaPago) || null,
+    formaPago: esForma ? (f.formaPago as FormaPago) || null : null,
     tope: tope ?? null,
+    tarjetaId,
     mes: (f.mes as Mes) || null,
   }
 }
@@ -109,6 +122,7 @@ export function filtrarMovimientos(
     if (criterios.categoria && m.categoria !== criterios.categoria) return false
     if (criterios.formaPago && m.formaPago !== criterios.formaPago) return false
     if (criterios.tope && TOPE_DE_FORMA_PAGO[m.formaPago] !== criterios.tope) return false
+    if (criterios.tarjetaId && m.tarjetaId !== criterios.tarjetaId) return false
     if (criterios.mes && mesDe(m.fecha) !== criterios.mes) return false
     if (criterios.desde && m.fecha < criterios.desde) return false
     if (criterios.hasta && m.fecha > criterios.hasta) return false
@@ -116,7 +130,15 @@ export function filtrarMovimientos(
     if (palabras.length === 0) return true
 
     const texto = normalizar(
-      [m.comercio, m.nota ?? '', m.categoria, m.subcategoria ?? '', m.banco ?? '', m.tarjeta ?? '']
+      [
+        m.comercio,
+        m.nota ?? '',
+        m.categoria,
+        m.subcategoria ?? '',
+        m.banco ?? '',
+        m.tarjeta ?? '',
+        m.tarjetaNombre ?? '',
+      ]
         .join(' '),
     )
     return palabras.every((p) => texto.includes(p))
@@ -128,6 +150,21 @@ export function categoriasDe(movs: MovimientoDetalle[]): string[] {
   return [...new Set(movs.map((m) => m.categoria))].sort((a, b) =>
     normalizar(a) < normalizar(b) ? -1 : normalizar(a) > normalizar(b) ? 1 : 0,
   )
+}
+
+/**
+ * Las tarjetas presentes, ordenadas por nombre, para sumarlas al selector de
+ * forma de pago. Salen de los movimientos y no de la tabla: así una tarjeta
+ * dada de baja aparece donde todavía tiene gastos, y no donde no tiene.
+ */
+export function tarjetasDe(movs: MovimientoDetalle[]): Array<{ id: string; nombre: string }> {
+  const vistas = new Map<string, string>()
+  for (const m of movs) {
+    if (m.tarjetaId && m.tarjetaNombre) vistas.set(m.tarjetaId, m.tarjetaNombre)
+  }
+  return [...vistas]
+    .map(([id, nombre]) => ({ id, nombre }))
+    .sort((a, b) => normalizar(a.nombre).localeCompare(normalizar(b.nombre)))
 }
 
 /** Cuánto suma lo que quedó filtrado. Entero, como todo importe. */

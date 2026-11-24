@@ -1,11 +1,13 @@
 import { getConfig } from '@/lib/db/config'
 import { getTodosLosComercios, getCategorias } from '@/lib/db/comercios'
 import { usuarioActual } from '@/lib/db/client'
+import { getTarjetas } from '@/lib/db/tarjetas'
 import { FormConfig } from '@/components/FormConfig'
 import { FormPassword } from '@/components/FormPassword'
 import { CatalogoComercios } from '@/components/CatalogoComercios'
 import { AltaComercio } from '@/components/AltaComercio'
 import { Seccion } from '@/components/Seccion'
+import { Tarjetas } from '@/components/Tarjetas'
 
 /**
  * Configuración, en secciones plegables.
@@ -19,11 +21,12 @@ import { Seccion } from '@/components/Seccion'
  * parámetros se tocan un par de veces por año.
  */
 export default async function ConfigPage() {
-  const [config, comercios, categorias, usuario] = await Promise.all([
+  const [config, comercios, categorias, usuario, tarjetas] = await Promise.all([
     getConfig(),
     getTodosLosComercios(),
     getCategorias(),
     usuarioActual(),
+    getTarjetas(),
   ])
 
   const activos = comercios.filter((c) => c.activo).length
@@ -41,6 +44,10 @@ export default async function ConfigPage() {
       <Seccion titulo="Catálogo" contador={`${activos} activos`} abierta>
         <AltaComercio categorias={categorias} />
         <CatalogoComercios comercios={comercios} categorias={categorias} />
+      </Seccion>
+
+      <Seccion titulo="Tarjetas" contador={`${tarjetas.filter((t) => t.activa).length} activas`}>
+        <Tarjetas tarjetas={tarjetas} />
       </Seccion>
 
       <Seccion titulo="Cuenta" contador={usuario?.email ?? undefined}>

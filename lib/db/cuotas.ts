@@ -15,7 +15,7 @@ import { leerPaginado } from '@/lib/db/paginar'
 
 const COLUMNAS =
   'id, fecha, comercio_id, importe_cuota_centavos, cuotas, forma_pago, banco, tarjeta, nota, ' +
-  'comercio, categoria, subcategoria, es_fijo'
+  'comercio, categoria, subcategoria, es_fijo, tarjeta_id, tarjeta_nombre, tarjeta_red'
 
 type FilaDetalle = {
   id: string
@@ -31,6 +31,9 @@ type FilaDetalle = {
   categoria: string
   subcategoria: string | null
   es_fijo: boolean
+  tarjeta_id: string | null
+  tarjeta_nombre: string | null
+  tarjeta_red: 'visa' | 'mastercard' | 'amex' | null
 }
 
 function aDominio(f: FilaDetalle): CompraCuotasDetalle {
@@ -48,6 +51,9 @@ function aDominio(f: FilaDetalle): CompraCuotasDetalle {
     categoria: f.categoria,
     subcategoria: f.subcategoria,
     esFijo: f.es_fijo,
+    tarjetaId: f.tarjeta_id,
+    tarjetaNombre: f.tarjeta_nombre,
+    tarjetaRed: f.tarjeta_red,
   }
 }
 
@@ -93,6 +99,7 @@ export async function crearCompra(c: {
   banco: string | null
   tarjeta: string | null
   nota: string | null
+  tarjetaId: string | null
 }): Promise<void> {
   const supabase = await crearCliente()
   const { error } = await supabase.from('compras_cuotas').insert({
@@ -104,6 +111,7 @@ export async function crearCompra(c: {
     banco: c.banco,
     tarjeta: c.tarjeta,
     nota: c.nota,
+    tarjeta_id: c.tarjetaId,
   })
 
   if (error) fallaDb('guardar la compra en cuotas', error)
@@ -120,6 +128,7 @@ export async function actualizarCompra(
     banco: string | null
     tarjeta: string | null
     nota: string | null
+    tarjetaId: string | null
   },
 ): Promise<void> {
   const supabase = await crearCliente()
@@ -134,6 +143,7 @@ export async function actualizarCompra(
       banco: c.banco,
       tarjeta: c.tarjeta,
       nota: c.nota,
+      tarjeta_id: c.tarjetaId,
     })
     .eq('id', id)
     .select('id')

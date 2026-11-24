@@ -53,6 +53,12 @@ export const movimientoSchema = z.object({
   banco: z.string().trim().max(60).nullable(),
   tarjeta: z.string().trim().max(60).nullable(),
   nota: z.string().trim().max(200).nullable(),
+  /**
+   * El plástico (tabla `tarjetas`). Es lo que manda para la meta del banco;
+   * `banco` y `tarjeta` de arriba son texto histórico del Excel. Opcional
+   * para que los fixtures de los tests no tengan que nombrarlo.
+   */
+  tarjetaId: z.uuid().nullable().optional(),
 })
 
 export type Movimiento = z.infer<typeof movimientoSchema>
@@ -68,6 +74,10 @@ export const movimientoDetalleSchema = movimientoSchema.extend({
   esFijo: z.boolean(),
   /** Marca manual de compra puntual. Ausente o `null` = lo decide la app. */
   puntual: z.boolean().nullable().optional(),
+  /** El nombre de la tarjeta ("Santander Visa"), resuelto por la vista. */
+  tarjetaNombre: z.string().nullable().optional(),
+  /** La red de esa tarjeta, para el logo. */
+  tarjetaRed: z.enum(['visa', 'mastercard', 'amex']).nullable().optional(),
 })
 
 export type MovimientoDetalle = z.infer<typeof movimientoDetalleSchema>
@@ -82,6 +92,7 @@ export const nuevoMovimientoSchema = z.object({
   tarjeta: z.string().trim().max(60).nullable().default(null),
   nota: z.string().trim().max(200).nullable().default(null),
   puntual: z.boolean().nullable().default(null),
+  tarjetaId: z.uuid('Elegí una tarjeta').nullable().default(null),
 })
 
 export type NuevoMovimiento = z.input<typeof nuevoMovimientoSchema>

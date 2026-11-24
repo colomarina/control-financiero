@@ -88,7 +88,7 @@ export function MontoHero({
         className,
       )}
     >
-      {children}
+      <Privado>{children}</Privado>
     </p>
   )
 }
@@ -266,7 +266,7 @@ export function Monto({
         className,
       )}
     >
-      {children}
+      <Privado>{children}</Privado>
     </span>
   )
 }
@@ -292,3 +292,46 @@ export const botonSecundario =
 
 /** Etiqueta de campo. */
 export const etiqueta = 'text-label-caps text-on-surface-variant uppercase'
+
+/** Un importe formateado adentro de un texto: "$1.500" o "-$1.500,50". */
+const IMPORTE_EN_TEXTO = /(-?\$\d[\d.]*(?:,\d{2})?)/
+
+/**
+ * Un importe que el modo privado del Home tapa con `$ ***`.
+ *
+ * Se dibujan los dos —el valor y la máscara— y el CSS de `globals.css` elige
+ * cuál se ve según `data-privado` en `<html>`. Así no hace falta JavaScript
+ * para alternar, y la máscara ocupa su propio ancho: no deja adivinar el largo
+ * del número como lo hacía el difuminado.
+ */
+export function Privado({ children }: { children: ReactNode }) {
+  return (
+    <>
+      <span className="privado-valor">{children}</span>
+      <span className="privado-mascara" aria-hidden>
+        $ ***
+      </span>
+    </>
+  )
+}
+
+/**
+ * Un texto con importes adentro ("Quedan $40.000 de $2.000.000"), con cada
+ * importe envuelto en `Privado`: en el modo privado se lee "Quedan $ *** de
+ * $ ***".
+ */
+export function ConMontos({ children }: { children: string }) {
+  return (
+    <>
+      {children.split(IMPORTE_EN_TEXTO).map((parte, i) =>
+        i % 2 === 1 ? (
+          <span key={i} className="tabular-nums">
+            <Privado>{parte}</Privado>
+          </span>
+        ) : (
+          parte
+        ),
+      )}
+    </>
+  )
+}

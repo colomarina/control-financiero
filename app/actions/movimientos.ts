@@ -6,7 +6,7 @@ import { z } from 'zod'
 import { nuevoMovimientoSchema } from '@/lib/schemas/movimiento'
 import { crearMovimiento, borrarMovimiento, actualizarMovimiento } from '@/lib/db/movimientos'
 import { parsearImporte } from '@/lib/core/dinero'
-import { texto, triestado } from '@/lib/formData'
+import { texto, triestado, tarjetaDelForm } from '@/lib/formData'
 
 export type EstadoForm =
   | { ok: true; mensaje: string }
@@ -31,6 +31,7 @@ export async function guardarMovimiento(
     formaPago: formData.get('formaPago'),
     banco: texto(formData, 'banco'),
     tarjeta: texto(formData, 'tarjeta'),
+    tarjetaId: tarjetaDelForm(formData),
     nota: texto(formData, 'nota'),
     puntual: triestado(formData, 'puntual'),
   })
@@ -78,6 +79,7 @@ export async function editarMovimiento(
     formaPago: formData.get('formaPago'),
     banco: texto(formData, 'banco'),
     tarjeta: texto(formData, 'tarjeta'),
+    tarjetaId: tarjetaDelForm(formData),
     nota: texto(formData, 'nota'),
     puntual: triestado(formData, 'puntual'),
   })

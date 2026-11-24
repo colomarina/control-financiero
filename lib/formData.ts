@@ -7,6 +7,8 @@
  * lógica de dominio, es un detalle de cómo se lee un formulario.
  */
 
+import { usaTarjeta } from '@/lib/core/tarjetas'
+
 /** Un campo de texto del form, recortado; `null` si no vino o quedó vacío. */
 export function texto(fd: FormData, campo: string): string | null {
   const v = fd.get(campo)
@@ -24,4 +26,16 @@ export function triestado(fd: FormData, campo: string): boolean | null {
   if (v === 'si') return true
   if (v === 'no') return false
   return null
+}
+
+/**
+ * La tarjeta del form, solo si la forma de pago pasa por una tarjeta. Si el
+ * usuario eligió una tarjeta y después cambió a efectivo, el input oculto
+ * puede seguir mandándola: acá se descarta, para que un gasto en efectivo
+ * nunca sume a la meta del banco.
+ */
+export function tarjetaDelForm(fd: FormData): string | null {
+  const forma = fd.get('formaPago')
+  if (typeof forma !== 'string' || !usaTarjeta(forma)) return null
+  return texto(fd, 'tarjetaId')
 }

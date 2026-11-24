@@ -11,6 +11,8 @@ import {
   ultimaFormaPorComercio,
 } from '@/lib/core/frecuentes'
 import { umbralesPuntual } from '@/lib/core/puntuales'
+import { getTarjetas } from '@/lib/db/tarjetas'
+import { tarjetasParaCargar } from '@/lib/core/tarjetas'
 import { FormGasto } from '@/components/FormGasto'
 
 /**
@@ -34,10 +36,11 @@ export default async function EditarMovimientoPage({
 
   const mes = mesActual()
   const desde = sumarMeses(mes, -1)
-  const [comercios, config, fijos] = await Promise.all([
+  const [comercios, config, fijos, tarjetas] = await Promise.all([
     getComercios(),
     getConfig(),
     getGastosFijos(),
+    getTarjetas(),
   ])
   const movs = await getMovimientosDesde(sumarMeses(mes, -config.mesesHistorico))
   const recientes = movs.filter((m) => mesDe(m.fecha) >= desde)
@@ -59,6 +62,7 @@ export default async function EditarMovimientoPage({
         formasFrecuentes={formasDePagoFrecuentes(recientes)}
         ultimaForma={ultimaFormaPorComercio(movs)}
         movimiento={movimiento}
+        tarjetas={tarjetasParaCargar(tarjetas, movimiento.tarjetaId)}
       />
     </div>
   )

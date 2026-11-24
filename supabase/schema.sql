@@ -177,6 +177,51 @@ create index if not exists compras_cuotas_user_fecha_ix on compras_cuotas (user_
 create index if not exists compras_cuotas_comercio_ix on compras_cuotas (comercio_id);
 
 -- ----------------------------------------------------------------------------
+-- tarjetas — los plásticos con que se paga (Santander Visa, Santander Amex,
+-- Mercado Pago Crédito...).
+--
+-- `suma_meta` marca las tarjetas cuyo consumo cuenta para la meta mínima del
+-- banco (config.meta_*): Santander bonifica la cuenta si entre Visa y Amex se
+-- consume un mínimo por resumen. La meta no es gastar más: es elegir con qué
+-- tarjeta se paga lo que igual se iba a gastar.
+--
+-- `activa = false` es para las que se dieron de baja: siguen nombrando los
+-- movimientos viejos pero no se ofrecen al cargar.
+--
+-- `movimientos.tarjeta_id` y `compras_cuotas.tarjeta_id` son el dato que
+-- manda. Las columnas de texto `banco`/`tarjeta` quedan como histórico del
+-- Excel y para el banco de lo que no es tarjeta (Mercado Pago, FCI).
+-- ----------------------------------------------------------------------------
+create table if not exists tarjetas (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  nombre      text not null,
+  banco       text not null,
+  suma_meta   boolean not null default false,
+  activa      boolean not null default true,
+  created_at  timestamptz not null default now(),
+  constraint tarjetas_nombre_no_vacio check (length(trim(nombre)) > 0)
+);
+
+create unique index if not exists tarjetas_user_nombre_uq
+  on tarjetas (user_id, lower(nombre));
+
+-- La red (Visa, Mastercard, Amex): decide qué logo se dibuja. Nullable para
+-- una tarjeta de la que no se sabe, que se muestra sin logo.
+alter table tarjetas add column if not exists red text;
+do $$ begin
+  alter table tarjetas add constraint tarjetas_red_valida check (red in ('visa', 'mastercard', 'amex'));
+exception when duplicate_object then null; end $$;
+
+alter table movimientos
+  add column if not exists tarjeta_id uuid references tarjetas(id) on delete restrict;
+alter table compras_cuotas
+  add column if not exists tarjeta_id uuid references tarjetas(id) on delete restrict;
+
+create index if not exists movimientos_tarjeta_ix on movimientos (tarjeta_id);
+create index if not exists compras_cuotas_tarjeta_ix on compras_cuotas (tarjeta_id);
+
+-- ----------------------------------------------------------------------------
 -- config — los parámetros (hoja "Configuracion"). Una sola fila por usuario.
 -- ----------------------------------------------------------------------------
 create table if not exists config (
@@ -215,6 +260,23 @@ create table if not exists config (
   constraint config_historico_valido check (meses_historico between 1 and 24)
 );
 
+-- Meta mínima de consumo con las tarjetas `suma_meta` (ver `tarjetas`).
+-- `meta_minimo_centavos = 0` apaga la meta. El colchón es lo que se suma al
+-- mínimo para darlo por cumplido con seguridad: la app cuenta por mes
+-- calendario y el banco por resumen. `meta_dia_cierre` es el día más temprano
+-- en que suele cerrar el resumen: la alerta de "pagá con Santander" cuenta
+-- los días hasta ahí, porque lo que se compra después cae en el resumen
+-- siguiente.
+alter table config add column if not exists meta_minimo_centavos  bigint   not null default 0;
+alter table config add column if not exists meta_colchon_centavos bigint   not null default 0;
+alter table config add column if not exists meta_dia_cierre       smallint not null default 24;
+
+do $$ begin
+  alter table config add constraint config_meta_valida check (
+    meta_minimo_centavos >= 0 and meta_colchon_centavos >= 0
+    and meta_dia_cierre between 1 and 31);
+exception when duplicate_object then null; end $$;
+
 -- ============================================================================
 -- Row Level Security
 -- La anon key de Supabase viaja al browser, así que sin RLS la tabla es pública.
@@ -226,11 +288,12 @@ alter table presupuesto    enable row level security;
 alter table gastos_fijos   enable row level security;
 alter table config         enable row level security;
 alter table compras_cuotas enable row level security;
+alter table tarjetas       enable row level security;
 
 do $$
 declare t text;
 begin
-  foreach t in array array['comercios', 'movimientos', 'presupuesto', 'gastos_fijos', 'config', 'compras_cuotas']
+  foreach t in array array['comercios', 'movimientos', 'presupuesto', 'gastos_fijos', 'config', 'compras_cuotas', 'tarjetas']
   loop
     execute format('drop policy if exists %I on %I', t || '_propias', t);
     execute format(
@@ -264,9 +327,13 @@ select
   c.subcategoria,
   c.es_fijo,
   -- Al final: `create or replace view` solo permite agregar columnas al final.
-  m.puntual
+  m.puntual,
+  m.tarjeta_id,
+  t.nombre        as tarjeta_nombre,
+  t.red           as tarjeta_red
 from movimientos m
-join comercios c on c.id = m.comercio_id;
+join comercios c on c.id = m.comercio_id
+left join tarjetas t on t.id = m.tarjeta_id;
 
 -- ----------------------------------------------------------------------------
 -- Vista de conveniencia para compras en cuotas, espejo de `movimientos_detalle`.
@@ -290,6 +357,10 @@ select
   c.nombre        as comercio,
   c.categoria,
   c.subcategoria,
-  c.es_fijo
+  c.es_fijo,
+  cc.tarjeta_id,
+  t.nombre        as tarjeta_nombre,
+  t.red           as tarjeta_red
 from compras_cuotas cc
-join comercios c on c.id = cc.comercio_id;
+join comercios c on c.id = cc.comercio_id
+left join tarjetas t on t.id = cc.tarjeta_id;
