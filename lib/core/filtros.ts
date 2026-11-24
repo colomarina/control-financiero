@@ -6,12 +6,22 @@
  */
 import { mesDe, type FechaISO, type Mes } from '@/lib/core/fechas'
 import type { FormaPago, MovimientoDetalle } from '@/lib/schemas/movimiento'
+import { TOPE_DE_FORMA_PAGO } from '@/lib/core/gastos'
+
+/** Contra qué tope pesa una forma de pago. Sale de `TOPE_DE_FORMA_PAGO`. */
+export type TopeFiltro = (typeof TOPE_DE_FORMA_PAGO)[FormaPago]
 
 export type Criterios = {
   /** Texto libre. Busca en comercio, nota, categoría y subcategoría. */
   texto?: string
   categoria?: string | null
   formaPago?: FormaPago | null
+  /**
+   * Todas las formas de pago de un tope a la vez: "tarjeta" son crédito,
+   * débito y débito automático. Sale de `TOPE_DE_FORMA_PAGO`, así que si una
+   * forma cambia de tope el filtro la sigue solo.
+   */
+  tope?: TopeFiltro | null
   /** Un mes entero ('YYYY-MM'). Atajo del rango, que es lo que pide la UI. */
   mes?: Mes | null
   /** Rango inclusivo. Las fechas son 'YYYY-MM-DD', que ordena como string. */
@@ -33,6 +43,17 @@ export type Filtros = {
   mes: string
 }
 
+/**
+ * El valor que usa el selector de forma de pago para pedir un tope entero.
+ *
+ * Viaja en el mismo campo `formaPago` de `Filtros` para que la pantalla siga
+ * teniendo un solo selector: "Todo tarjeta" es una opción más de la lista.
+ */
+export const FILTRO_TOPE: Record<TopeFiltro, string> = {
+  tarjeta: 'tope:tarjeta',
+  efectivo: 'tope:efectivo',
+}
+
 export const SIN_FILTROS: Filtros = { texto: '', categoria: '', formaPago: '', mes: '' }
 
 /** Si hay algo puesto, para decidir si se ofrece el botón de limpiar. */
@@ -42,10 +63,14 @@ export function hayFiltro(f: Filtros): boolean {
 
 /** Traduce el estado de la pantalla a los criterios del filtro. */
 export function criteriosDe(f: Filtros): Criterios {
+  const tope = (Object.keys(FILTRO_TOPE) as TopeFiltro[]).find(
+    (t) => FILTRO_TOPE[t] === f.formaPago,
+  )
   return {
     texto: f.texto,
     categoria: f.categoria || null,
-    formaPago: (f.formaPago as FormaPago) || null,
+    formaPago: tope ? null : (f.formaPago as FormaPago) || null,
+    tope: tope ?? null,
     mes: (f.mes as Mes) || null,
   }
 }
@@ -83,6 +108,7 @@ export function filtrarMovimientos(
   return movs.filter((m) => {
     if (criterios.categoria && m.categoria !== criterios.categoria) return false
     if (criterios.formaPago && m.formaPago !== criterios.formaPago) return false
+    if (criterios.tope && TOPE_DE_FORMA_PAGO[m.formaPago] !== criterios.tope) return false
     if (criterios.mes && mesDe(m.fecha) !== criterios.mes) return false
     if (criterios.desde && m.fecha < criterios.desde) return false
     if (criterios.hasta && m.fecha > criterios.hasta) return false

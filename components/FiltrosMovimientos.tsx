@@ -1,7 +1,7 @@
 'use client'
 
 import { nombreMes, type Mes } from '@/lib/core/fechas'
-import { hayFiltro, SIN_FILTROS, type Filtros } from '@/lib/core/filtros'
+import { FILTRO_TOPE, hayFiltro, SIN_FILTROS, type Filtros } from '@/lib/core/filtros'
 import { FORMAS_PAGO, ETIQUETA_FORMA_PAGO } from '@/lib/schemas/movimiento'
 import { Card, campo, botonSecundario } from '@/components/ds'
 import { CampoSelect } from '@/components/CampoSelect'
@@ -19,6 +19,17 @@ import { Icono } from '@/components/Icono'
  * apuntar, y en dos columnas "Toda forma de pago" entraba cortado. Cada fila
  * lleva su ícono y su nombre a la izquierda, y el valor a la derecha.
  */
+/**
+ * Primero los topes enteros y después cada forma suelta. "Todo tarjeta" es lo
+ * que se busca casi siempre: crédito, débito y débito automático pesan contra
+ * el mismo tope, y elegirlos de a uno no deja ver el total.
+ */
+const OPCIONES_FORMA_PAGO = [
+  { valor: FILTRO_TOPE.tarjeta, etiqueta: 'Todo tarjeta' },
+  { valor: FILTRO_TOPE.efectivo, etiqueta: 'Todo efectivo y transferencia' },
+  ...FORMAS_PAGO.map((f) => ({ valor: f, etiqueta: ETIQUETA_FORMA_PAGO[f] })),
+]
+
 export function FiltrosMovimientos({
   valor,
   onCambio,
@@ -72,7 +83,7 @@ export function FiltrosMovimientos({
           vacio="Todas"
           valor={valor.formaPago}
           onCambio={(formaPago) => poner({ formaPago })}
-          opciones={FORMAS_PAGO.map((f) => ({ valor: f, etiqueta: ETIQUETA_FORMA_PAGO[f] }))}
+          opciones={OPCIONES_FORMA_PAGO}
         />
 
         {meses && (

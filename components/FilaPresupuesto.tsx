@@ -10,6 +10,7 @@ const TONO: Record<EstadoPresupuesto, Semaforo> = {
   'al-limite': 'atencion',
   excedido: 'mal',
   'sin-plan': 'neutro',
+  completo: 'ok',
 }
 
 /**
@@ -36,7 +37,9 @@ export function FilaPresupuesto({ fila, mes }: { fila: Fila; mes: string }) {
             <Monto tono={tono} className="text-body-sm shrink-0">
               {estado === 'sin-plan'
                 ? 'Sin plan'
-                : diferencia >= 0
+                : estado === 'completo'
+                  ? 'Listo ✓'
+                  : diferencia >= 0
                   ? `Quedan ${formatoARS(diferencia)}`
                   : `Te pasaste ${formatoARS(-diferencia)}`}
             </Monto>
