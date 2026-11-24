@@ -1,7 +1,7 @@
 import type { LineaPresupuestoDetalle } from '@/lib/schemas/presupuesto'
 import type { MovimientoDetalle } from '@/lib/schemas/movimiento'
 import { movimientosDelMes } from './gastos'
-import { sumar, porcentaje } from './dinero'
+import { sumar, porcentaje, formatoARS } from './dinero'
 import { UMBRAL_CERCA } from './topes'
 import type { Mes } from './fechas'
 
@@ -144,4 +144,75 @@ export function copiarPlan(
       comercioId: l.comercioId,
       planeadoCentavos: l.planeadoCentavos,
     }))
+}
+
+/**
+ * Cuánto se puede sacar de una línea para moverlo a otra: lo que todavía no
+ * se gastó. Lo gastado ya pasó y moverlo dejaría la línea excedida a
+ * propósito, que no es lo que se quiere decir.
+ */
+export function disponibleParaMover(fila: FilaPresupuesto): number {
+  return Math.max(0, fila.diferencia)
+}
+
+export type ResultadoMover =
+  | {
+      ok: true
+      /** Las dos líneas con su plan nuevo. Un plan de 0 significa sacarla del mes. */
+      lineas: [
+        { comercioId: string; planeadoCentavos: number },
+        { comercioId: string; planeadoCentavos: number },
+      ]
+    }
+  | { ok: false; error: string }
+
+/**
+ * Pasa plata del plan de un comercio al de otro dentro del mismo mes.
+ *
+ * Es el caso "no hubo fulbito y esa plata fue a la carnicería": el plan
+ * cambió a mitad de mes y se lo reescribe, sin tocar los movimientos. El
+ * total planeado del mes no cambia.
+ *
+ * El destino puede no estar en el plan: entonces entra con lo que se mueve.
+ * El origen se puede vaciar solo si no tenía nada gastado; si no, el piso es
+ * lo gastado y la línea queda `completo`.
+ */
+export function moverPlata(
+  filas: FilaPresupuesto[],
+  origenId: string,
+  destinoId: string,
+  montoCentavos: number,
+): ResultadoMover {
+  if (origenId === destinoId) {
+    return { ok: false, error: 'Elegí dos comercios distintos.' }
+  }
+  if (!Number.isInteger(montoCentavos) || montoCentavos <= 0) {
+    return { ok: false, error: 'El monto tiene que ser mayor a cero.' }
+  }
+
+  const origen = filas.find((f) => f.comercioId === origenId)
+  if (!origen) {
+    return { ok: false, error: 'Ese comercio no está en el plan del mes.' }
+  }
+
+  const disponible = disponibleParaMover(origen)
+  if (montoCentavos > disponible) {
+    return {
+      ok: false,
+      error:
+        disponible === 0
+          ? `En ${origen.comercio} no queda plata sin gastar para mover.`
+          : `De ${origen.comercio} podés mover hasta ${formatoARS(disponible)}, lo que no gastaste.`,
+    }
+  }
+
+  const planDestino = filas.find((f) => f.comercioId === destinoId)?.planeado ?? 0
+
+  return {
+    ok: true,
+    lineas: [
+      { comercioId: origenId, planeadoCentavos: origen.planeado - montoCentavos },
+      { comercioId: destinoId, planeadoCentavos: planDestino + montoCentavos },
+    ],
+  }
 }

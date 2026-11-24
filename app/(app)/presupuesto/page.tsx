@@ -10,6 +10,7 @@ import { copiarMesAnterior } from '@/app/actions/presupuesto'
 import { SelectorMes } from '@/components/SelectorMes'
 import { FilaPresupuesto } from '@/components/FilaPresupuesto'
 import { AltaLineaPlan } from '@/components/AltaLineaPlan'
+import { MoverPlata } from '@/components/MoverPlata'
 import { Icono } from '@/components/Icono'
 import {
   Card,
@@ -119,6 +120,7 @@ export default async function PresupuestoPage({
             </Card>
           </section>
 
+          <MoverPlata filas={filas} fueraDelPlan={disponibles} mes={mes} />
         </>
       )}
 

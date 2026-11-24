@@ -5,6 +5,8 @@ import {
   presupuestoVsReal,
   resumenPresupuesto,
   copiarPlan,
+  moverPlata,
+  disponibleParaMover,
 } from './presupuesto'
 
 const ID = {
@@ -164,5 +166,58 @@ describe('copiarPlan', () => {
 
   it('copiar un mes sin plan no devuelve nada', () => {
     expect(copiarPlan(plan, '2026-01', '2026-02')).toEqual([])
+  })
+})
+
+describe('moverPlata', () => {
+  // Verdulería: excedida · Gym: le quedan 200.000 · Milanesas: le quedan 7.000.000
+  const filas = presupuestoVsReal(plan, movs, '2026-10')
+
+  it('pasa plata de una línea a otra y el total del mes no cambia', () => {
+    const r = moverPlata(filas, ID.milanesas, ID.gym, 1_000_000)
+    expect(r).toEqual({
+      ok: true,
+      lineas: [
+        { comercioId: ID.milanesas, planeadoCentavos: 9_000_000 },
+        { comercioId: ID.gym, planeadoCentavos: 6_000_000 },
+      ],
+    })
+  })
+
+  it('el destino puede no estar en el plan: entra con lo que se mueve', () => {
+    const r = moverPlata(filas, ID.milanesas, ID.coto, 500_000)
+    expect(r.ok && r.lineas[1]).toEqual({ comercioId: ID.coto, planeadoCentavos: 500_000 })
+  })
+
+  it('mover todo lo que queda deja la línea completa, con el plan igual a lo gastado', () => {
+    const r = moverPlata(filas, ID.gym, ID.milanesas, 200_000)
+    expect(r.ok && r.lineas[0]).toEqual({ comercioId: ID.gym, planeadoCentavos: 4_800_000 })
+  })
+
+  it('una línea sin gastar se puede vaciar (el caso fulbito)', () => {
+    const sinGastar = presupuestoVsReal(
+      [{ id: 'f', mes: '2026-10', comercioId: ID.farmacia, comercio: 'Fulbito', planeadoCentavos: 2_000_000 }],
+      [],
+      '2026-10',
+    )
+    const r = moverPlata(sinGastar, ID.farmacia, ID.coto, 2_000_000)
+    expect(r.ok && r.lineas[0].planeadoCentavos).toBe(0)
+  })
+
+  it('no deja mover más de lo que no se gastó', () => {
+    const r = moverPlata(filas, ID.gym, ID.milanesas, 300_000)
+    expect(r).toEqual({ ok: false, error: 'De Gym podés mover hasta $2.000, lo que no gastaste.' })
+  })
+
+  it('de una línea excedida no hay nada para mover', () => {
+    const r = moverPlata(filas, ID.verduleria, ID.gym, 100)
+    expect(r.ok).toBe(false)
+    expect(disponibleParaMover(filas.find((f) => f.comercioId === ID.verduleria)!)).toBe(0)
+  })
+
+  it('rechaza mismo comercio, monto cero y origen fuera del plan', () => {
+    expect(moverPlata(filas, ID.gym, ID.gym, 100).ok).toBe(false)
+    expect(moverPlata(filas, ID.milanesas, ID.gym, 0).ok).toBe(false)
+    expect(moverPlata(filas, ID.coto, ID.gym, 100).ok).toBe(false)
   })
 })
