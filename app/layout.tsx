@@ -4,6 +4,14 @@ import { Toaster } from '@/components/ui/sonner'
 import { RegistrarSW } from '@/components/RegistrarSW'
 import './globals.css'
 
+/**
+ * Pone el modo privado del Home antes del primer pintado (ver `BotonPrivado`).
+ * Va inline y sincrónico a propósito: si esperara a React, al recargar con el
+ * modo puesto los importes se verían un instante.
+ */
+const SCRIPT_PRIVADO =
+  "try{if(localStorage.getItem('privado')==='1')document.documentElement.setAttribute('data-privado','')}catch(e){}"
+
 const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] })
 
 // Material Symbols (los íconos del design system) no está en next/font/google,
@@ -41,8 +49,11 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
       lang="es-AR"
       // Dark siempre: no hay tema claro ni switcher.
       className={`dark ${geistSans.variable} h-full antialiased`}
+      // El script de abajo agrega `data-privado` antes de hidratar.
+      suppressHydrationWarning
     >
       <head>
+        <script dangerouslySetInnerHTML={{ __html: SCRIPT_PRIVADO }} />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         <link rel="stylesheet" href={MATERIAL_SYMBOLS} />

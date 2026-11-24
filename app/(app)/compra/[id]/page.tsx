@@ -17,6 +17,8 @@ import { numeroDeCuota, cuotasTranscurridas, totalPlan, mesFinal } from '@/lib/c
 import { comerciosFrecuentes } from '@/lib/core/frecuentes'
 import { formatoARS } from '@/lib/core/dinero'
 import { Card, TituloCard, MontoHero, Barra, ItemLista, Separador, Monto, type Semaforo } from '@/components/ds'
+import { getTarjetas } from '@/lib/db/tarjetas'
+import { tarjetasParaCargar } from '@/lib/core/tarjetas'
 import { FormGasto } from '@/components/FormGasto'
 
 type EstadoCuota = 'pagada' | 'actual' | 'pendiente'
@@ -55,9 +57,10 @@ export default async function CompraEnCuotasPage({
   // El RLS ya filtra por usuario: si no aparece, o no existe o no es tuya.
   if (!compra) notFound()
 
-  const [comercios, movs] = await Promise.all([
+  const [comercios, movs, tarjetas] = await Promise.all([
     getComercios(),
     getMovimientosDesde(sumarMeses(mesActual(), -1)),
+    getTarjetas(),
   ])
 
   const mes = mesActual()
@@ -157,6 +160,7 @@ export default async function CompraEnCuotasPage({
         frecuentes={comerciosFrecuentes(movs, comercios)}
         hoy={hoyISO()}
         compra={compra}
+        tarjetas={tarjetasParaCargar(tarjetas, compra.tarjetaId)}
         // Una compra del mes en curso tiene 1 cuota transcurrida, pero
         // `compraCuotasSchema` exige 2 (una sola cuota es un gasto común, no
         // un plan). Sin el piso en 2, el stepper ofrecía un escalón que la

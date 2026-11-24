@@ -198,3 +198,14 @@ Tamaños típicos: 18–22px en UI, 28px en el FAB.
 - Respetar safe areas (`pt-safe`, `pb-safe`) en header y bottom-nav.
 - Generar **componentes React con shadcn/ui**, no HTML plano con `onclick` inline.
   El mockup HTML es referencia visual, no código a copiar.
+
+---
+
+## Excepción: logos de las redes de tarjeta
+
+`components/LogoRed.tsx` dibuja los logos de Visa, Mastercard y Amex (`assets/redes/*.svg`).
+Es la **única** pieza con colores fuera de la paleta: son marcas, no colores de interfaz, y
+reconocer la tarjeta de un vistazo es justamente su gracia. Para que no compitan con el
+semáforo van chicos (20–32 px de ancho) y solo donde se nombra una tarjeta: la línea de
+detalle de los movimientos y la lista de Tarjetas en `/config`. No usarlos como decoración
+ni tomar sus colores para otra cosa.

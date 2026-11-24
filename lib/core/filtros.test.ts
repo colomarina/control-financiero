@@ -9,6 +9,8 @@ import {
   hayFiltro,
   SIN_FILTROS,
   FILTRO_TOPE,
+  PREFIJO_TARJETA,
+  tarjetasDe,
 } from './filtros'
 
 let n = 0
@@ -220,7 +222,9 @@ describe('criteriosDe', () => {
 
   it('traduce lo que puso el usuario', () => {
     expect(criteriosDe({ texto: 'coto', categoria: 'Salud', formaPago: 'efectivo', mes: '2026-09' }))
-      .toEqual({ texto: 'coto', categoria: 'Salud', formaPago: 'efectivo', tope: null, mes: '2026-09' })
+      .toEqual({
+        texto: 'coto', categoria: 'Salud', formaPago: 'efectivo', tope: null, tarjetaId: null, mes: '2026-09',
+      })
   })
 
   it('"Todo tarjeta" viaja en formaPago y sale como tope', () => {
@@ -242,5 +246,32 @@ describe('hayFiltro', () => {
     expect(hayFiltro({ ...SIN_FILTROS, categoria: 'Salud' })).toBe(true)
     expect(hayFiltro({ ...SIN_FILTROS, formaPago: 'efectivo' })).toBe(true)
     expect(hayFiltro({ ...SIN_FILTROS, mes: '2026-09' })).toBe(true)
+  })
+})
+
+describe('tarjetas', () => {
+  const VISA = '00000000-0000-4000-8000-0000000000a1'
+  const AMEX = '00000000-0000-4000-8000-0000000000a2'
+  const conTarjeta = [
+    mov({ comercio: 'Coto', tarjetaId: VISA, tarjetaNombre: 'Santander Visa' }),
+    mov({ comercio: 'PSA', tarjetaId: AMEX, tarjetaNombre: 'Santander Amex' }),
+    mov({ comercio: 'Verdulería', formaPago: 'efectivo', tarjetaId: null, tarjetaNombre: null }),
+  ]
+
+  it('"tarjeta:<id>" filtra por esa tarjeta', () => {
+    const c = criteriosDe({ ...SIN_FILTROS, formaPago: `${PREFIJO_TARJETA}${AMEX}` })
+    expect(c).toMatchObject({ tarjetaId: AMEX, formaPago: null, tope: null })
+    expect(filtrarMovimientos(conTarjeta, c).map((m) => m.comercio)).toEqual(['PSA'])
+  })
+
+  it('el texto encuentra por el nombre de la tarjeta', () => {
+    expect(filtrarMovimientos(conTarjeta, { texto: 'amex' }).map((m) => m.comercio)).toEqual(['PSA'])
+  })
+
+  it('tarjetasDe lista las presentes, sin repetir y por nombre', () => {
+    expect(tarjetasDe([...conTarjeta, ...conTarjeta])).toEqual([
+      { id: AMEX, nombre: 'Santander Amex' },
+      { id: VISA, nombre: 'Santander Visa' },
+    ])
   })
 })

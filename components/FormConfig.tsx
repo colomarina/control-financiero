@@ -73,6 +73,40 @@ export function FormConfig({ config }: { config: Config }) {
         />
       </Seccion>
 
+      <Seccion titulo="Meta de consumo con tarjeta">
+        <p className="text-body-sm text-on-surface-variant">
+          El mínimo que el banco pide consumir por resumen para bonificar la cuenta. Suman
+          las tarjetas marcadas en Tarjetas. No es para gastar más: es para elegir con qué
+          tarjeta pagás. En 0 no se muestra.
+        </p>
+
+        <Campo
+          id="metaMinimo"
+          rotulo="Mínimo del resumen"
+          inputMode="decimal"
+          defaultValue={aPesos(config.metaMinimoCentavos)}
+        />
+
+        <div className="gap-space-sm grid grid-cols-2">
+          <Campo
+            id="metaColchon"
+            rotulo="Colchón"
+            inputMode="decimal"
+            defaultValue={aPesos(config.metaColchonCentavos)}
+            ayuda="Se suma al mínimo, por las dudas."
+          />
+          <Campo
+            id="metaDiaCierre"
+            rotulo="Cierre aprox. (día)"
+            type="number"
+            min={1}
+            max={31}
+            defaultValue={config.metaDiaCierre}
+            ayuda="El más temprano en que suele cerrar."
+          />
+        </div>
+      </Seccion>
+
       <Seccion titulo="Predicción">
 
         <Campo

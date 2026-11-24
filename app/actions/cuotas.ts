@@ -8,7 +8,7 @@ import { crearCompra, getCompraEnCuotas, actualizarCompra, borrarCompra } from '
 import { parsearImporte } from '@/lib/core/dinero'
 import { puedeReducirA, cuotasTranscurridas } from '@/lib/core/cuotas'
 import { mesActual } from '@/lib/core/fechas'
-import { texto } from '@/lib/formData'
+import { texto, tarjetaDelForm } from '@/lib/formData'
 import type { EstadoForm } from '@/app/actions/movimientos'
 
 /**
@@ -32,6 +32,7 @@ export async function guardarCompraEnCuotas(
     formaPago: formData.get('formaPago'),
     banco: texto(formData, 'banco'),
     tarjeta: texto(formData, 'tarjeta'),
+    tarjetaId: tarjetaDelForm(formData),
     nota: texto(formData, 'nota'),
   })
 
@@ -93,6 +94,7 @@ export async function editarCompraEnCuotas(
     formaPago: formData.get('formaPago'),
     banco: texto(formData, 'banco'),
     tarjeta: texto(formData, 'tarjeta'),
+    tarjetaId: tarjetaDelForm(formData),
     nota: texto(formData, 'nota'),
   })
 

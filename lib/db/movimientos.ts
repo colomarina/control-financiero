@@ -14,7 +14,7 @@ import { leerPaginado } from '@/lib/db/paginar'
 
 const COLUMNAS =
   'id, fecha, comercio_id, importe_centavos, forma_pago, banco, tarjeta, nota, ' +
-  'comercio, categoria, subcategoria, es_fijo, puntual'
+  'comercio, categoria, subcategoria, es_fijo, puntual, tarjeta_id, tarjeta_nombre, tarjeta_red'
 
 type FilaDetalle = {
   id: string
@@ -30,6 +30,9 @@ type FilaDetalle = {
   subcategoria: string | null
   es_fijo: boolean
   puntual: boolean | null
+  tarjeta_id: string | null
+  tarjeta_nombre: string | null
+  tarjeta_red: 'visa' | 'mastercard' | 'amex' | null
 }
 
 function aDominio(f: FilaDetalle): MovimientoDetalle {
@@ -47,6 +50,9 @@ function aDominio(f: FilaDetalle): MovimientoDetalle {
     subcategoria: f.subcategoria,
     esFijo: f.es_fijo,
     puntual: f.puntual,
+    tarjetaId: f.tarjeta_id,
+    tarjetaNombre: f.tarjeta_nombre,
+    tarjetaRed: f.tarjeta_red,
   }
 }
 
@@ -106,6 +112,7 @@ export async function crearMovimiento(m: {
   tarjeta: string | null
   nota: string | null
   puntual: boolean | null
+  tarjetaId: string | null
 }): Promise<void> {
   const supabase = await crearCliente()
   const { error } = await supabase.from('movimientos').insert({
@@ -117,6 +124,7 @@ export async function crearMovimiento(m: {
     tarjeta: m.tarjeta,
     nota: m.nota,
     puntual: m.puntual,
+    tarjeta_id: m.tarjetaId,
   })
 
   if (error) fallaDb('guardar el movimiento', error)
@@ -153,6 +161,7 @@ export async function actualizarMovimiento(
     tarjeta: string | null
     nota: string | null
     puntual: boolean | null
+    tarjetaId: string | null
   },
 ): Promise<void> {
   const supabase = await crearCliente()
@@ -167,6 +176,7 @@ export async function actualizarMovimiento(
       tarjeta: m.tarjeta,
       nota: m.nota,
       puntual: m.puntual,
+      tarjeta_id: m.tarjetaId,
     })
     .eq('id', id)
     .select('id')

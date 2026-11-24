@@ -19,6 +19,8 @@ export const compraCuotasSchema = z.object({
   banco: z.string().trim().max(60).nullable(),
   tarjeta: z.string().trim().max(60).nullable(),
   nota: z.string().trim().max(200).nullable(),
+  /** El plástico (tabla `tarjetas`). Ver `movimientoSchema`. */
+  tarjetaId: z.uuid().nullable().optional(),
 })
 
 export type CompraCuotas = z.infer<typeof compraCuotasSchema>
@@ -32,6 +34,9 @@ export const compraCuotasDetalleSchema = compraCuotasSchema.extend({
   categoria: z.string(),
   subcategoria: z.string().nullable(),
   esFijo: z.boolean(),
+  /** El nombre de la tarjeta, resuelto por la vista. */
+  tarjetaNombre: z.string().nullable().optional(),
+  tarjetaRed: z.enum(['visa', 'mastercard', 'amex']).nullable().optional(),
 })
 
 export type CompraCuotasDetalle = z.infer<typeof compraCuotasDetalleSchema>
@@ -41,6 +46,7 @@ export const nuevaCompraCuotasSchema = compraCuotasSchema.omit({ id: true }).ext
   banco: z.string().trim().max(60).nullable().default(null),
   tarjeta: z.string().trim().max(60).nullable().default(null),
   nota: z.string().trim().max(200).nullable().default(null),
+  tarjetaId: z.uuid('Elegí una tarjeta').nullable().default(null),
 })
 
 export type NuevaCompraCuotas = z.input<typeof nuevaCompraCuotasSchema>

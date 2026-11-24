@@ -5,6 +5,7 @@ import Link from 'next/link'
 import {
   filtrarMovimientos,
   categoriasDe,
+  tarjetasDe,
   totalDe,
   criteriosDe,
   hayFiltro,
@@ -37,6 +38,7 @@ export function MovimientosMes({ movimientos }: { movimientos: MovimientoDetalle
   const [abierto, setAbierto] = useState(false)
 
   const categorias = useMemo(() => categoriasDe(movimientos), [movimientos])
+  const tarjetas = useMemo(() => tarjetasDe(movimientos), [movimientos])
   const filtrados = useMemo(
     () => filtrarMovimientos(movimientos, criteriosDe(filtros)),
     [movimientos, filtros],
@@ -71,7 +73,12 @@ export function MovimientosMes({ movimientos }: { movimientos: MovimientoDetalle
       </div>
 
       {abierto && (
-        <FiltrosMovimientos valor={filtros} onCambio={setFiltros} categorias={categorias} />
+        <FiltrosMovimientos
+          valor={filtros}
+          onCambio={setFiltros}
+          categorias={categorias}
+          tarjetas={tarjetas}
+        />
       )}
 
       {/* Con un filtro puesto, el total de lo que quedó es la mitad de la

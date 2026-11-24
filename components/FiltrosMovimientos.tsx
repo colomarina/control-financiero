@@ -1,7 +1,7 @@
 'use client'
 
 import { nombreMes, type Mes } from '@/lib/core/fechas'
-import { FILTRO_TOPE, hayFiltro, SIN_FILTROS, type Filtros } from '@/lib/core/filtros'
+import { FILTRO_TOPE, PREFIJO_TARJETA, hayFiltro, SIN_FILTROS, type Filtros } from '@/lib/core/filtros'
 import { FORMAS_PAGO, ETIQUETA_FORMA_PAGO } from '@/lib/schemas/movimiento'
 import { Card, campo, botonSecundario } from '@/components/ds'
 import { CampoSelect } from '@/components/CampoSelect'
@@ -20,20 +20,25 @@ import { Icono } from '@/components/Icono'
  * lleva su ícono y su nombre a la izquierda, y el valor a la derecha.
  */
 /**
- * Primero los topes enteros y después cada forma suelta. "Todo tarjeta" es lo
- * que se busca casi siempre: crédito, débito y débito automático pesan contra
- * el mismo tope, y elegirlos de a uno no deja ver el total.
+ * Primero los topes enteros, después cada tarjeta y al final cada forma
+ * suelta. "Todo tarjeta" es lo que se busca casi siempre: crédito, débito y
+ * débito automático pesan contra el mismo tope, y elegirlos de a uno no deja
+ * ver el total. Las tarjetas van justo debajo porque son su desglose.
  */
-const OPCIONES_FORMA_PAGO = [
-  { valor: FILTRO_TOPE.tarjeta, etiqueta: 'Todo tarjeta' },
-  { valor: FILTRO_TOPE.efectivo, etiqueta: 'Todo efectivo y transferencia' },
-  ...FORMAS_PAGO.map((f) => ({ valor: f, etiqueta: ETIQUETA_FORMA_PAGO[f] })),
-]
+function opcionesFormaPago(tarjetas: Array<{ id: string; nombre: string }>) {
+  return [
+    { valor: FILTRO_TOPE.tarjeta, etiqueta: 'Todo tarjeta' },
+    ...tarjetas.map((t) => ({ valor: `${PREFIJO_TARJETA}${t.id}`, etiqueta: t.nombre })),
+    { valor: FILTRO_TOPE.efectivo, etiqueta: 'Todo efectivo y transferencia' },
+    ...FORMAS_PAGO.map((f) => ({ valor: f, etiqueta: ETIQUETA_FORMA_PAGO[f] })),
+  ]
+}
 
 export function FiltrosMovimientos({
   valor,
   onCambio,
   categorias,
+  tarjetas = [],
   meses,
   destacada = false,
 }: {
@@ -41,6 +46,8 @@ export function FiltrosMovimientos({
   onCambio: (filtros: Filtros) => void
   /** Las categorías presentes en lo que se está filtrando. */
   categorias: string[]
+  /** Las tarjetas presentes (`tarjetasDe`): se suman al selector de forma de pago. */
+  tarjetas?: Array<{ id: string; nombre: string }>
   /** Los meses con datos, del más nuevo al más viejo. Sin esto no hay filtro de mes. */
   meses?: Mes[]
   /** Un fondo más claro, para cuando el bloque vive adentro de una `Seccion`. */
@@ -83,7 +90,7 @@ export function FiltrosMovimientos({
           vacio="Todas"
           valor={valor.formaPago}
           onCambio={(formaPago) => poner({ formaPago })}
-          opciones={OPCIONES_FORMA_PAGO}
+          opciones={opcionesFormaPago(tarjetas)}
         />
 
         {meses && (

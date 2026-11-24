@@ -15,6 +15,12 @@ export interface Config {
   cotizacionUsdCentavos: number
   umbralCercaPct: number
   mesesHistorico: number
+  /** Meta mínima de consumo con las tarjetas `sumaMeta`. 0 = sin meta. */
+  metaMinimoCentavos: number
+  /** Lo que se suma al mínimo para darlo por cumplido con seguridad. */
+  metaColchonCentavos: number
+  /** Día más temprano en que suele cerrar el resumen. */
+  metaDiaCierre: number
 }
 
 /** Los defaults del schema, por si todavía no hay fila. */
@@ -27,12 +33,15 @@ export const CONFIG_POR_DEFECTO: Config = {
   cotizacionUsdCentavos: 0,
   umbralCercaPct: 85,
   mesesHistorico: 3,
+  metaMinimoCentavos: 0,
+  metaColchonCentavos: 0,
+  metaDiaCierre: 24,
 }
 
 const COLUMNAS =
   'tope_tarjeta_centavos, tope_efectivo_centavos, sueldo_centavos, ' +
   'objetivo_gasto_mensual_centavos, objetivo_ahorro_usd, cotizacion_usd_centavos, ' +
-  'umbral_cerca_pct, meses_historico'
+  'umbral_cerca_pct, meses_historico, meta_minimo_centavos, meta_colchon_centavos, meta_dia_cierre'
 
 type FilaConfig = {
   tope_tarjeta_centavos: number
@@ -43,6 +52,9 @@ type FilaConfig = {
   cotizacion_usd_centavos: number
   umbral_cerca_pct: number
   meses_historico: number
+  meta_minimo_centavos: number
+  meta_colchon_centavos: number
+  meta_dia_cierre: number
 }
 
 /** La config del usuario. Si todavía no cargó ninguna, devuelve los defaults. */
@@ -63,6 +75,9 @@ export async function getConfig(): Promise<Config> {
     cotizacionUsdCentavos: Number(f.cotizacion_usd_centavos),
     umbralCercaPct: Number(f.umbral_cerca_pct),
     mesesHistorico: Number(f.meses_historico),
+    metaMinimoCentavos: Number(f.meta_minimo_centavos),
+    metaColchonCentavos: Number(f.meta_colchon_centavos),
+    metaDiaCierre: Number(f.meta_dia_cierre),
   }
 }
 
@@ -83,6 +98,9 @@ export async function guardarConfig(c: Partial<Config>): Promise<void> {
       ...(c.cotizacionUsdCentavos !== undefined && { cotizacion_usd_centavos: c.cotizacionUsdCentavos }),
       ...(c.umbralCercaPct !== undefined && { umbral_cerca_pct: c.umbralCercaPct }),
       ...(c.mesesHistorico !== undefined && { meses_historico: c.mesesHistorico }),
+      ...(c.metaMinimoCentavos !== undefined && { meta_minimo_centavos: c.metaMinimoCentavos }),
+      ...(c.metaColchonCentavos !== undefined && { meta_colchon_centavos: c.metaColchonCentavos }),
+      ...(c.metaDiaCierre !== undefined && { meta_dia_cierre: c.metaDiaCierre }),
       updated_at: new Date().toISOString(),
     },
     { onConflict: 'user_id' },
