@@ -1,6 +1,6 @@
 import Link from 'next/link'
-import { cerrarSesion } from '@/app/actions/auth'
 import { NavMobile } from '@/components/NavMobile'
+import { MenuEncabezado } from '@/components/MenuEncabezado'
 import { LinkConEstado } from '@/components/LinkConEstado'
 import { Icono } from '@/components/Icono'
 
@@ -23,27 +23,10 @@ export default function AppLayout({ children }: LayoutProps<'/'>) {
             <span className="text-headline-sm truncate">Control Financiero</span>
           </Link>
 
-          <div className="gap-space-xs ml-auto flex shrink-0 items-center">
-            <LinkConEstado
-              href="/historial"
-              aria-label="Historial"
-              className="text-on-surface-variant hover:text-on-surface grid size-9 place-items-center rounded-full"
-              pendiente={
-                <Icono nombre="progress_activity" className="text-primary animate-spin text-[20px]" />
-              }
-            >
-              <Icono nombre="trending_up" className="text-[20px]" />
-            </LinkConEstado>
-
-            <form action={cerrarSesion}>
-              <button
-                type="submit"
-                aria-label="Salir"
-                className="text-on-surface-variant hover:text-on-surface grid size-9 place-items-center rounded-full"
-              >
-                <Icono nombre="logout" className="text-[20px]" />
-              </button>
-            </form>
+          {/* Lo que se usa poco (config, cerrar sesión) va en el menú; lo de
+              todos los días, en la bottom-nav. */}
+          <div className="ml-auto shrink-0">
+            <MenuEncabezado />
           </div>
         </div>
       </header>
