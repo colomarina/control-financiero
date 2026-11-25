@@ -14,7 +14,10 @@ import { cn } from '@/lib/utils'
  * bottom-nav. Config se toca un par de veces por año y el simulador es una
  * consulta puntual: los dos quedan a dos toques desde cualquier pantalla.
  */
-const OPCIONES = [{ href: '/config', etiqueta: 'Configuración', icono: 'settings' }] as const
+const OPCIONES = [
+  { href: '/simular', etiqueta: 'Simulador', icono: 'calculate' },
+  { href: '/config', etiqueta: 'Configuración', icono: 'settings' },
+] as const
 
 const claseOpcion = cn(
   'px-space-sm gap-space-sm text-body-md flex min-h-11 w-full items-center rounded-lg py-2',
