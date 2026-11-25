@@ -338,9 +338,14 @@ manda el gasto al día siguiente.
   aparece recién cuando arranca la navegación, y entre el tap y ese momento no pasa
   nada: en el celular eso se lee como "no me registró el toque".
   - Por eso todo destino se acusa en el acto. La bottom-nav tiñe el tab tocado
-    (`useLinkStatus` en `NavMobile`), y el FAB y el link a Historial cambian su ícono
-    por un spinner (`LinkConEstado`). `useLinkStatus` **solo funciona adentro de un
-    `<Link>`**, así que el contenido siempre va en un componente aparte.
+    (`useLinkStatus` en `NavMobile`), el FAB cambia su ícono por un spinner
+    (`LinkConEstado`) y las opciones del menú del encabezado también. `useLinkStatus`
+    **solo funciona adentro de un `<Link>`**, así que el contenido siempre va en un
+    componente aparte.
+  - **Navegación**: la bottom-nav tiene lo de todos los días (Este mes, Presupuesto,
+    Fijos, Historial, con el FAB al medio); lo que se toca poco (Configuración, cerrar
+    sesión) va en `MenuEncabezado`. El menú no se cierra al tocar una opción —así se ve
+    el spinner— sino al cambiar de ruta: `key={pathname}` remonta el `Popover`.
   - Las filas que navegan llevan `active:` además de `hover:`: en el celular no hay
     hover y el destello al tocar es el único acuse antes del esqueleto.
 - **Config e Historial son secciones plegables** (`Seccion`). Son las dos pantallas

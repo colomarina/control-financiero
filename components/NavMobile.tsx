@@ -9,12 +9,15 @@ import { cn } from '@/lib/utils'
 /**
  * Bottom-nav fija con cuatro tabs y el hueco central para el FAB.
  * El FAB lo pone el layout, no este componente.
+ *
+ * Son las pantallas de todos los días. Config y cerrar sesión, que se tocan
+ * poco, viven en el menú del encabezado (`MenuEncabezado`).
  */
 const TABS = [
   { href: '/', etiqueta: 'Este mes', icono: 'dashboard' },
   { href: '/presupuesto', etiqueta: 'Presupuesto', icono: 'account_balance_wallet' },
   { href: '/fijos', etiqueta: 'Fijos', icono: 'event_repeat' },
-  { href: '/config', etiqueta: 'Config', icono: 'settings' },
+  { href: '/historial', etiqueta: 'Historial', icono: 'trending_up' },
 ] as const
 
 /**
