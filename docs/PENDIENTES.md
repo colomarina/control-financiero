@@ -77,9 +77,9 @@ Crédito. Es aditiva: el código de `master` sigue andando con la base migrada.
 
 ---
 
-## 4. Simulador "¿puedo gastar X?" 🟢
+## 4. Simulador "¿puedo gastar X?" — fase 1 ✅, fase 2 opcional
 
-Punto 4 del plan del 24/11/2026. Primero sin IA: un monto y una forma de pago, y la app
+La fase 1 (sin IA) está hecha: `/simular`. Queda la fase 2 si se quiere. Punto 4 del plan del 24/11/2026. Primero sin IA: un monto y una forma de pago, y la app
 recalcula el cierre estimado (y la meta, si es con Santander) con ese gasto incluido y
 contesta con el semáforo. Lógica pura en `lib/core`, reusando `prediccionDelTope` y
 `metaDelMes`. Después, opcional: pregunta en texto libre a Claude vía AI Gateway, que

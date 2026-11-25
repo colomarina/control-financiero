@@ -544,6 +544,12 @@ plan Free de Supabase no hace backups automáticos.
   —la tarjeta si la hay, si no la forma de pago—; la subcategoría no va. Las vistas traen
   `tarjeta_nombre`, y el filtro de forma de pago suma cada tarjeta (`tarjeta:<id>`) debajo
   de "Todo tarjeta".
+- **Simulador** (`/simular`, desde el menú del encabezado): "¿puedo gastar esto?".
+  `simularGasto` (`lib/core/simulador.ts`) agrega el gasto como un movimiento **puntual** y
+  corre las mismas cuentas del Home: margen del tope, cierre estimado, presupuesto del
+  comercio y meta del banco. Veredicto: `no` (no entra en el tope), `justo` (entra pero el
+  cierre se pasa), `si`. Es un GET (`next/form`) y no guarda nada. Recibe la misma lista que
+  el cierre estimado: movimientos reales y las cuotas del mes aparte.
 - **Compras en cuotas**: la compra se guarda **una sola vez** (`compras_cuotas` + la vista
   `compras_cuotas_detalle`, DDL en `supabase/schema.sql`) y las cuotas **no se guardan
   nunca**: las deriva `lib/core/cuotas.ts` mes a mes, materializadas como objetos que cumplen
