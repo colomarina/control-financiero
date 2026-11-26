@@ -87,26 +87,6 @@ recibe el resultado del simulador — ojo, eso manda datos financieros afuera.
 
 ---
 
-## 1. Backup de la base 🔴
-
-**Por qué primero.** El plan Free de Supabase **no tiene backups automáticos ni
-point-in-time recovery** — eso arranca en el plan Pro. Hasta ahora el respaldo real era el
-Excel; al dejarlo de usar, la base de Supabase queda como copia única de todo el historial.
-
-**Qué hacer.** Un `npm run backup` que exporte la base a un `.sql` con fecha en el nombre,
-fuera del repo (el dump tiene los mismos datos reales que `seed.sql`, así que **no se
-versiona**).
-
-- Vía recomendada por Supabase: `supabase db dump` (CLI).
-- Guardar los dumps en una carpeta ignorada por git y copiarlos a Drive/Dropbox.
-- Decidir cada cuánto: una vez por mes alcanza si los movimientos se cargan al día.
-
-**Criterio de listo**: corrés un comando, te queda un archivo, y restaurarlo en una base
-vacía reconstruye todo.
-
-
----
-
 ## 2. Actualizar Next.js por el aviso de seguridad 🟠
 
 `npm run build` corta la primera corrida con un `SecurityFatalError` de Next.js
@@ -131,4 +111,8 @@ app levantando en local con el login, cargar un gasto y el Home andando.
 ## Descartado
 
 - **Export a CSV.** Se evaluó y no interesa: para mirar los datos ya está el buscador del
-  Historial, y el respaldo lo resuelve el punto 1, que sí restaura la base.
+  Historial.
+- **Backup de la base.** Uso personal: no se guardan copias de datos personales fuera de
+  Supabase. Se asume el riesgo de que el plan Free no tenga backups automáticos ni
+  point-in-time recovery. (Ver la regla de `db dump` con `--schema public` en el
+  `CLAUDE.md`, por si algún día se retoma.)

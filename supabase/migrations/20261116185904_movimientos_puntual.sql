@@ -1,0 +1,4 @@
+-- Marcador: esta migración ya está aplicada en el remoto (se aplicó por MCP,
+-- antes de que el repo usara el CLI de Supabase). Su efecto está en
+-- supabase/schema.sql. Existe solo para que el historial local coincida con el
+-- remoto y `db push` no se queje. No agregar SQL acá.
