@@ -300,6 +300,53 @@ manda el gasto al día siguiente.
 
 ---
 
+## Proyecto de Supabase compartido con Mise en Casa
+
+El proyecto de Supabase (`control-financiero`, ref `kdwgcelfmcmraepczvlf`) se comparte
+con otra app, **Mise en Casa**, que vive en el esquema `mise`. Finanzas vive en `public`.
+Estas reglas mandan sobre cualquier comando que toque el remoto:
+
+- **El esquema `mise` no se lee, no se modifica y no se borra.** Ninguna query, migración
+  ni dump lo toca.
+- **El hook "Before User Created" es uno solo por proyecto** y lo usa una allowlist
+  compartida (`mise.before_user_created`). No reemplazarlo ni desactivarlo. Si finanzas
+  necesita lógica propia de alta de usuarios, se coordina en esa misma función.
+- **Prohibido**: `supabase db reset --linked`, `supabase migration repair`, `supabase db pull`
+  y `supabase config push`. Este último pisaría la configuración de auth, que es de las
+  dos apps (Site URL, redirects, hook). `supabase/config.jsonc` es solo para el stack local.
+- **`supabase db push` solo después de mostrar un `--dry-run`.** Con el CLI 3.x va
+  `--remote` (sin él apunta al stack local): `npx supabase db push --remote --dry-run`.
+  Si el CLI corre desde un agente, sumar `--agent no --output-format text` para que no
+  pase a salida JSON.
+- **`supabase db dump` siempre con `--schema public`**: sin eso vuelca todos los esquemas,
+  `mise` incluido.
+- **El historial de migraciones es compartido.** Si `db push` se queja de versiones que no
+  están en `supabase/migrations/`, son de Mise: se agrega un marcador **vacío** con la
+  misma versión y el mismo nombre (`<version>_<nombre>.sql`, solo un comentario, sin
+  SQL). Nunca `migration repair`.
+  - Las cuatro primeras migraciones de finanzas (`20261116185904` a `20261124232318`)
+    también son marcadores: se aplicaron por MCP antes de que el repo usara el CLI, y su
+    efecto está en `schema.sql`.
+- **No cambiar la Site URL sin avisar**: Mise usa solo redirect URLs, pero un cambio igual
+  la afecta.
+- **La service role key nunca va al frontend.** La app no la usa: todo pasa por la anon
+  key con la sesión del usuario, y el RLS decide.
+- **Permisos y RLS** (migración `endurecer_public`): `anon` no tiene ningún grant en
+  `public`, y `authenticated` solo tiene `select/insert/update/delete`. Las políticas de las
+  siete tablas exigen `user_id = auth.uid()` **y** que `auth.uid()` sea el usuario de
+  finanzas (UUID fijo en la política). Los usuarios de Mise también son `authenticated`:
+  sin esa segunda condición podían insertar filas propias acá. **Una tabla nueva en
+  `public` lleva la misma política**; los default privileges ya le niegan todo a `anon`.
+- **Toda función nueva en `public` lleva, en su misma migración,
+  `revoke execute on function public.f(...) from public, anon;` y un `grant execute`
+  explícito a quien la use** (normalmente `authenticated`). Los default privileges no
+  alcanzan: el EXECUTE para PUBLIC es un default global de Postgres, un
+  `alter default privileges ... in schema public` no lo puede quitar (la migración
+  `revocar_execute_funciones` lo intentó y se verificó que no tuvo efecto), y la versión
+  global alcanzaría también a las funciones de `mise`.
+
+---
+
 ## Estado real del repo (actualizar si cambia)
 
 - **Tailwind v4, CSS-first.** No hay `tailwind.config.ts`: un config v3 no se carga.
@@ -410,8 +457,9 @@ manda el gasto al día siguiente.
 ## Pendiente
 
 Las etapas 0–5 están completas. Lo que queda, con su contexto, vive en
-[`docs/PENDIENTES.md`](docs/PENDIENTES.md) — hoy es solo el backup de la base, porque el
-plan Free de Supabase no hace backups automáticos.
+[`docs/PENDIENTES.md`](docs/PENDIENTES.md). El backup de la base se descartó (uso personal:
+no se guardan copias de datos personales fuera de Supabase); el motivo está ahí, en
+*Descartado*.
 
 ## Ya hecho (no volver a proponerlo)
 

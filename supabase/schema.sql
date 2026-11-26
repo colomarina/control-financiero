@@ -280,7 +280,9 @@ exception when duplicate_object then null; end $$;
 -- ============================================================================
 -- Row Level Security
 -- La anon key de Supabase viaja al browser, así que sin RLS la tabla es pública.
--- Cada fila es visible solo para su dueño.
+-- Cada fila es visible solo para su dueño, y solo si el dueño es el usuario de
+-- finanzas: el proyecto se comparte con Mise en Casa, cuyos usuarios también son
+-- `authenticated` y sin esa condición podrían insertar filas propias acá.
 -- ============================================================================
 alter table comercios      enable row level security;
 alter table movimientos    enable row level security;
@@ -295,9 +297,11 @@ declare t text;
 begin
   foreach t in array array['comercios', 'movimientos', 'presupuesto', 'gastos_fijos', 'config', 'compras_cuotas', 'tarjetas']
   loop
-    execute format('drop policy if exists %I on %I', t || '_propias', t);
+    execute format('drop policy if exists %I on public.%I', t || '_propias', t);
     execute format(
-      'create policy %I on %I for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid())',
+      $f$create policy %I on public.%I for all to authenticated
+         using      (user_id = auth.uid() and auth.uid() = 'f0586087-896e-4606-8bfe-5cbdc9c80cef'::uuid)
+         with check (user_id = auth.uid() and auth.uid() = 'f0586087-896e-4606-8bfe-5cbdc9c80cef'::uuid)$f$,
       t || '_propias', t
     );
   end loop;
@@ -364,3 +368,30 @@ select
 from compras_cuotas cc
 join comercios c on c.id = cc.comercio_id
 left join tarjetas t on t.id = cc.tarjeta_id;
+
+-- ============================================================================
+-- Permisos. Al final, para que alcancen también a las vistas.
+-- `anon` no tiene nada: la app nunca lee tablas sin sesión. `authenticated`
+-- solo lo que usa la app (TRUNCATE no respeta RLS). Los default privileges
+-- cubren lo que se cree después en `public`.
+-- ============================================================================
+revoke all on all tables    in schema public from anon;
+revoke all on all sequences in schema public from anon;
+alter default privileges for role postgres in schema public revoke all on tables    from anon;
+alter default privileges for role postgres in schema public revoke all on sequences from anon;
+-- Una función nueva en `public` no nace ejecutable por `anon` por grant directo.
+alter default privileges for role postgres in schema public revoke execute on functions from anon;
+-- Pero SÍ nace ejecutable por PUBLIC, y `anon` es miembro de PUBLIC. El EXECUTE
+-- para PUBLIC es un default global de Postgres, y un `alter default privileges
+-- ... in schema` solo deshace lo que se otorgó para ese mismo esquema: un
+-- `revoke ... from public` acá no hace nada (la migración
+-- `revocar_execute_funciones` lo tiene, y se verificó que no tuvo efecto).
+-- La versión global (sin `in schema`) lo arreglaría, pero alcanza a todos los
+-- esquemas, `mise` incluido. Por eso cada función nueva en `public` se cierra en
+-- su propia migración:
+--   revoke execute on function public.f(...) from public, anon;
+--   grant  execute on function public.f(...) to authenticated;  -- a quien la use
+
+revoke truncate, references, trigger on all tables in schema public from authenticated;
+alter default privileges for role postgres in schema public
+  revoke truncate, references, trigger on tables from authenticated;
